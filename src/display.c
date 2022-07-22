@@ -17,6 +17,7 @@
 
 #include "display.h"
 
+#include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrandr.h>
@@ -46,12 +47,12 @@ static int size_y(Geometry_context g)
 /* Draw an empty bar with the given colors */
 static void draw_empty(X_context x, Geometry_context g, Colors colors)
 {
+    /* Fill with transparent layer so other windows can update
+     * content behind the bar (works only with compositors) */
+    Color transparent = {.red = 0x0, .green = 0x0, .blue = 0x0, .alpha = 0x0};
+    fill_rectangle(x, transparent, 0, 0, g.size_x + 300, g.size_y + 300);
+
     /* Outline */
-#ifdef _DEBUG_
-    // fill_rectangle(x, colors.bg, 0, 0,
-    //                2 * (g.outline + g.border + g.padding) + size_x(g),
-    //                2 * (g.outline + g.border + g.padding) + size_y(g));
-#endif
     /* Left */
     fill_rectangle(x, colors.bg, 0, 0, g.outline,
                    2 * (g.outline + g.border + g.padding) + size_y(g));
@@ -72,11 +73,6 @@ static void draw_empty(X_context x, Geometry_context g, Colors colors)
         2 * (g.outline + g.border + g.padding) + size_x(g), g.outline);
 
     /* Border */
-#ifdef _DEBUG_
-    fill_rectangle(x, colors.border, g.outline, g.outline,
-                   2 * (g.border + g.padding) + size_x(g),
-                   2 * (g.border + g.padding) + size_y(g));
-#endif
     /* Left */
     fill_rectangle(x, colors.border, g.outline, g.outline, g.border,
                    2 * (g.border + g.padding) + size_y(g));
@@ -96,11 +92,6 @@ static void draw_empty(X_context x, Geometry_context g, Colors colors)
                    2 * (g.border + g.padding) + size_x(g), g.border);
 
     /* Padding */
-#ifdef _DEBUG_
-    fill_rectangle(x, colors.bg, g.outline + g.border, g.outline + g.border,
-                   2 * g.padding + size_x(g), 2 * g.padding + size_y(g));
-#endif
-
     /* Left */
     fill_rectangle(x, colors.bg, g.outline + g.border, g.outline + g.border,
                    g.padding, 2 * g.padding + size_y(g));
@@ -193,19 +184,18 @@ void compute_geometry(Style conf, Display_context *dc, int *topleft_x,
         fit_in(*available_length * conf.length.rel + conf.length.abs, 0,
                *available_length - 2 * *fat_layer);
 
+    dc->geometry.size_x = size_x(dc->geometry) + 2 * *fat_layer;
+    dc->geometry.size_y = size_y(dc->geometry) + 2 * *fat_layer;
+
     /* Compute position of the top-left corner */
-    *topleft_x = fit_in(dc->x.monitor_info.width * conf.x.rel -
-                            (size_x(dc->geometry) + 2 * *fat_layer) / 2,
-                        0,
-                        dc->x.monitor_info.width -
-                            (size_x(dc->geometry) + 2 * *fat_layer)) +
-                 conf.x.abs + dc->x.monitor_info.x;
-    *topleft_y = fit_in(dc->x.monitor_info.height * conf.y.rel -
-                            (size_y(dc->geometry) + 2 * *fat_layer) / 2,
-                        0,
-                        dc->x.monitor_info.height -
-                            (size_y(dc->geometry) + 2 * *fat_layer)) +
-                 conf.y.abs + dc->x.monitor_info.y;
+    *topleft_x =
+        fit_in(dc->x.monitor_info.width * conf.x.rel - dc->geometry.size_x / 2,
+               0, dc->x.monitor_info.width - dc->geometry.size_x) +
+        conf.x.abs + dc->x.monitor_info.x;
+    *topleft_y =
+        fit_in(dc->x.monitor_info.height * conf.y.rel - dc->geometry.size_y / 2,
+               0, dc->x.monitor_info.height - dc->geometry.size_y) +
+        conf.y.abs + dc->x.monitor_info.y;
 }
 
 /* Set combined positon */
@@ -260,7 +250,7 @@ static void set_specified_position(Display_context *pdc, const Style *pconf)
 /* Move and resize the bar relative to a monitor with provided coords */
 static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
 {
-    int fat_layer, available_length, bar_size_x, bar_size_y, i;
+    int fat_layer, available_length, i;
     int topleft_x, topleft_y;
     int num_monitors;
     XRRMonitorInfo *monitor_sizes;
@@ -288,23 +278,26 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
                            pdc->geometry.length_dynamic.abs,
                        0, available_length - 2 * fat_layer);
 
-            bar_size_x = size_x(pdc->geometry) + 2 * fat_layer;
-            bar_size_y = size_y(pdc->geometry) + 2 * fat_layer;
+            pdc->geometry.size_x = size_x(pdc->geometry) + 2 * fat_layer;
+            pdc->geometry.size_y = size_y(pdc->geometry) + 2 * fat_layer;
 
             /* Recalculate bar position */
-            topleft_x = fit_in(monitor_sizes[i].width * pdc->geometry.x.rel -
-                                   bar_size_x / 2,
-                               0, monitor_sizes[i].width - bar_size_x) +
-                        pdc->geometry.x.abs + monitor_sizes[i].x;
+            topleft_x =
+                fit_in(monitor_sizes[i].width * pdc->geometry.x.rel -
+                           pdc->geometry.size_x / 2,
+                       0, monitor_sizes[i].width - pdc->geometry.size_x) +
+                pdc->geometry.x.abs + monitor_sizes[i].x;
 
-            topleft_y = fit_in(monitor_sizes[i].height * pdc->geometry.y.rel -
-                                   bar_size_y / 2,
-                               0, monitor_sizes[i].height - bar_size_y) +
-                        pdc->geometry.y.abs + monitor_sizes[i].y;
+            topleft_y =
+                fit_in(monitor_sizes[i].height * pdc->geometry.y.rel -
+                           pdc->geometry.size_y / 2,
+                       0, monitor_sizes[i].height - pdc->geometry.size_y) +
+                pdc->geometry.y.abs + monitor_sizes[i].y;
 
             /* Move and resize bar */
             XMoveResizeWindow(pdc->x.display, pdc->x.window, topleft_x,
-                              topleft_y, bar_size_x, bar_size_y);
+                              topleft_y, pdc->geometry.size_x + 300,
+                              pdc->geometry.size_y + 300);
             break;
         }
     }
@@ -423,10 +416,45 @@ Display_context init(Style conf)
 
         /* Creation of the window */
         dc.x.window = XCreateWindow(
-            dc.x.display, root, topleft_x, topleft_y,
-            size_x(dc.geometry) + 2 * fat_layer,
-            size_y(dc.geometry) + 2 * fat_layer, 0, dc_depth.depth, InputOutput,
+            dc.x.display, root, topleft_x, topleft_y, dc.geometry.size_x + 300,
+            dc.geometry.size_y + 300, 0, dc_depth.depth, InputOutput,
             dc_depth.visuals, window_attributes_flags, &window_attributes);
+        printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
+        /* Set text rendering context */
+        char *font_color = "#ffffff";
+        // char *font_name = "times:pixelsize=50";
+        char *font_name = "Font Awesome 5 Free,Font Awesome 5 Free "
+                          "Solid:style=Solid:pixelsize=40:spacing=40";
+        // char *text = "Hello world";
+        // char *text = "";
+        char *text = "";
+        // dc.text_rendering.text.rel_x = 1.0;
+        dc.text_rendering.text.rel_x = 0.5;
+        // dc.text_rendering.text.rel_y = 1.0;
+        dc.text_rendering.text.rel_y = 0.5;
+
+        strncpy(dc.text_rendering.text.string, text, MAX_STRING_LEN - 1);
+        dc.text_rendering.text.string[MAX_STRING_LEN - 1] = '\0';
+
+        dc.text_rendering.colormap =
+            XCreateColormap(dc.x.display, root, dc_depth.visuals, AllocNone);
+        dc.text_rendering.visual = dc_depth.visuals;
+
+        dc.text_rendering.xft_draw =
+            XftDrawCreate(dc.x.display, dc.x.window, dc.text_rendering.visual,
+                          dc.text_rendering.colormap);
+
+        dc.text_rendering.text.font =
+            XftFontOpenName(dc.x.display, dc.x.screen_number, font_name);
+        if (dc.text_rendering.text.font)
+            fprintf(stderr, "Info: Loaded font \"%s\"\n", font_name);
+        else
+            fprintf(stderr, "Error: Font \"%s\" is not loaded\n", font_name);
+
+        if (!XftColorAllocName(dc.x.display, dc.text_rendering.visual,
+                               dc.text_rendering.colormap, font_color,
+                               &dc.text_rendering.text.font_color))
+            fprintf(stderr, "Error: Color \"%s\" is not loaded\n", font_color);
 
         /* Set a WM_CLASS for the window */
         XClassHint *class_hint = XAllocClassHint();
@@ -451,6 +479,11 @@ Display_context init(Style conf)
 /* PUBLIC Cleans the X memory buffers. */
 void display_context_destroy(Display_context *pdc)
 {
+    XftColorFree(pdc->x.display, pdc->text_rendering.visual,
+                 pdc->text_rendering.colormap,
+                 &pdc->text_rendering.text.font_color);
+    XftDrawDestroy(pdc->text_rendering.xft_draw);
+
     XCloseDisplay(pdc->x.display);
 }
 
@@ -544,6 +577,27 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         draw_content(pdc->x, pdc->geometry,
                      fit_in(value, 0, cap) * pdc->geometry.length / cap,
                      colors);
+
+    XFlush(pdc->x.display);
+
+    /************************ Text Rendering ************************/
+    {
+        XGlyphInfo text_info;
+        XftTextExtentsUtf8(pdc->x.display, pdc->text_rendering.text.font,
+                           (const FcChar8 *)pdc->text_rendering.text.string,
+                           strlen(pdc->text_rendering.text.string), &text_info);
+
+        int tpos_x = pdc->text_rendering.text.rel_x * pdc->geometry.size_x -
+                     text_info.width * 0.5;
+        int tpos_y = pdc->text_rendering.text.rel_y * pdc->geometry.size_y +
+                     text_info.height * 0.5;
+
+        XftDrawStringUtf8(pdc->text_rendering.xft_draw,
+                          &pdc->text_rendering.text.font_color,
+                          pdc->text_rendering.text.font, tpos_x, tpos_y,
+                          (const FcChar8 *)pdc->text_rendering.text.string,
+                          strlen(pdc->text_rendering.text.string));
+    }
 
     XFlush(pdc->x.display);
 }

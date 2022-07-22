@@ -19,12 +19,14 @@
 #define DISPLAY_H
 
 #include "conf.h"
+#include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>
 
 #define STATE_ALT (0x1)
 #define STATE_OVERFLOW (0x1 << 1)
 #define STATE_MAPPED (0x1 << 2)
+#define MAX_STRING_LEN 40
 
 typedef enum
 {
@@ -48,6 +50,23 @@ typedef struct
     int width;
     int height;
 } MonitorInfo;
+
+typedef struct
+{
+    XftColor font_color;
+    XftFont *font;
+    char string[MAX_STRING_LEN];
+    float rel_x;
+    float rel_y;
+} Text_context;
+
+typedef struct
+{
+    Text_context text;
+    XftDraw *xft_draw;
+    Colormap colormap;
+    Visual *visual;
+} Text_rendering_context;
 
 typedef struct
 {
@@ -83,6 +102,8 @@ typedef struct
     } y;
     Bar_position bar_position;
     Orientation orientation;
+    int size_x;
+    int size_y;
 } Geometry_context;
 
 typedef struct
@@ -90,6 +111,7 @@ typedef struct
     X_context x;
     Colorscheme colorscheme;
     Geometry_context geometry;
+    Text_rendering_context text_rendering;
 } Display_context;
 
 Display_context init(Style conf);
