@@ -104,6 +104,7 @@ typedef struct
     Orientation orientation;
     int size_x;
     int size_y;
+    int fat_layer;
 } Geometry_context;
 
 typedef struct

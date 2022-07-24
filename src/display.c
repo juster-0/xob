@@ -161,41 +161,31 @@ static void draw_separator(X_context x, Geometry_context g, int position,
     }
 }
 
-void compute_geometry(Style conf, Display_context *dc, int *topleft_x,
-                      int *topleft_y, int *fat_layer, int *available_length)
+void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 {
-    dc->geometry.outline = conf.outline;
-    dc->geometry.border = conf.border;
-    dc->geometry.padding = conf.padding;
-    dc->geometry.thickness = conf.thickness;
-    dc->geometry.orientation = conf.orientation;
-    dc->geometry.length_dynamic.rel = conf.length.rel;
-    dc->geometry.length_dynamic.abs = conf.length.abs;
-
-    *fat_layer =
-        dc->geometry.padding + dc->geometry.border + dc->geometry.outline;
-
     /* Orientation-related dimensions */
-    *available_length = dc->geometry.orientation == HORIZONTAL
-                            ? dc->x.monitor_info.width
-                            : dc->x.monitor_info.height;
+    int available_length = pdc->geometry.orientation == HORIZONTAL
+                               ? pdc->x.monitor_info.width
+                               : pdc->x.monitor_info.height;
 
-    dc->geometry.length =
-        fit_in(*available_length * conf.length.rel + conf.length.abs, 0,
-               *available_length - 2 * *fat_layer);
+    /* Calculate bar sizes */
+    pdc->geometry.length =
+        fit_in(available_length * pdc->geometry.length_dynamic.rel +
+                   pdc->geometry.length_dynamic.abs,
+               0, available_length - 2 * pdc->geometry.fat_layer);
 
-    dc->geometry.size_x = size_x(dc->geometry) + 2 * *fat_layer;
-    dc->geometry.size_y = size_y(dc->geometry) + 2 * *fat_layer;
+    pdc->geometry.size_x = size_x(pdc->geometry) + 2 * pdc->geometry.fat_layer;
+    pdc->geometry.size_y = size_y(pdc->geometry) + 2 * pdc->geometry.fat_layer;
 
     /* Compute position of the top-left corner */
-    *topleft_x =
-        fit_in(dc->x.monitor_info.width * conf.x.rel - dc->geometry.size_x / 2,
-               0, dc->x.monitor_info.width - dc->geometry.size_x) +
-        conf.x.abs + dc->x.monitor_info.x;
-    *topleft_y =
-        fit_in(dc->x.monitor_info.height * conf.y.rel - dc->geometry.size_y / 2,
-               0, dc->x.monitor_info.height - dc->geometry.size_y) +
-        conf.y.abs + dc->x.monitor_info.y;
+    *topleft_x = fit_in(pdc->x.monitor_info.width * pdc->geometry.x.rel -
+                            pdc->geometry.size_x / 2,
+                        0, pdc->x.monitor_info.width - pdc->geometry.size_x) +
+                 pdc->geometry.x.abs + pdc->x.monitor_info.x;
+    *topleft_y = fit_in(pdc->x.monitor_info.height * pdc->geometry.y.rel -
+                            pdc->geometry.size_y / 2,
+                        0, pdc->x.monitor_info.height - pdc->geometry.size_y) +
+                 pdc->geometry.y.abs + pdc->x.monitor_info.y;
 }
 
 /* Set combined positon */
@@ -250,12 +240,10 @@ static void set_specified_position(Display_context *pdc, const Style *pconf)
 /* Move and resize the bar relative to a monitor with provided coords */
 static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
 {
-    int fat_layer, available_length, i;
+    int i;
     int topleft_x, topleft_y;
     int num_monitors;
     XRRMonitorInfo *monitor_sizes;
-    fat_layer =
-        pdc->geometry.padding + pdc->geometry.border + pdc->geometry.outline;
 
     monitor_sizes = XRRGetMonitors(
         pdc->x.display, RootWindow(pdc->x.display, pdc->x.screen_number), 0,
@@ -268,41 +256,19 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
             y >= monitor_sizes[i].y &&
             y < monitor_sizes[i].y + monitor_sizes[i].height)
         {
-            /* Recalculate bar sizes */
-            available_length = pdc->geometry.orientation == HORIZONTAL
-                                   ? monitor_sizes[i].width
-                                   : monitor_sizes[i].height;
-
-            pdc->geometry.length =
-                fit_in(available_length * pdc->geometry.length_dynamic.rel +
-                           pdc->geometry.length_dynamic.abs,
-                       0, available_length - 2 * fat_layer);
-
-            pdc->geometry.size_x = size_x(pdc->geometry) + 2 * fat_layer;
-            pdc->geometry.size_y = size_y(pdc->geometry) + 2 * fat_layer;
-
-            /* Recalculate bar position */
-            topleft_x =
-                fit_in(monitor_sizes[i].width * pdc->geometry.x.rel -
-                           pdc->geometry.size_x / 2,
-                       0, monitor_sizes[i].width - pdc->geometry.size_x) +
-                pdc->geometry.x.abs + monitor_sizes[i].x;
-
-            topleft_y =
-                fit_in(monitor_sizes[i].height * pdc->geometry.y.rel -
-                           pdc->geometry.size_y / 2,
-                       0, monitor_sizes[i].height - pdc->geometry.size_y) +
-                pdc->geometry.y.abs + monitor_sizes[i].y;
-
-            /* Move and resize bar */
-            XMoveResizeWindow(pdc->x.display, pdc->x.window, topleft_x,
-                              topleft_y, pdc->geometry.size_x + 300,
-                              pdc->geometry.size_y + 300);
             break;
         }
     }
-
+    pdc->x.monitor_info.width = monitor_sizes[i].width;
+    pdc->x.monitor_info.height = monitor_sizes[i].height;
+    pdc->x.monitor_info.x = monitor_sizes[i].x;
+    pdc->x.monitor_info.y = monitor_sizes[i].y;
     XRRFreeMonitors(monitor_sizes);
+
+    compute_geometry(pdc, &topleft_x, &topleft_y);
+
+    XMoveResizeWindow(pdc->x.display, pdc->x.window, topleft_x, topleft_y,
+                      pdc->geometry.size_x + 300, pdc->geometry.size_y + 300);
 }
 
 /* Mobe the bar to monitor with focused window */
@@ -355,8 +321,6 @@ Display_context init(Style conf)
     Window root;
     int topleft_x;
     int topleft_y;
-    int fat_layer;
-    int available_length;
     XSetWindowAttributes window_attributes;
     static long window_attributes_flags =
         CWColormap | CWBorderPixel | CWOverrideRedirect;
@@ -374,12 +338,6 @@ Display_context init(Style conf)
             XCreateColormap(dc.x.display, root, dc_depth.visuals, AllocNone);
         window_attributes.border_pixel = 0;
         window_attributes.override_redirect = True;
-
-        /* Write bar position relative data to X_context */
-        dc.geometry.x.rel = conf.x.rel;
-        dc.geometry.x.abs = conf.x.abs;
-        dc.geometry.y.rel = conf.y.rel;
-        dc.geometry.y.abs = conf.y.abs;
 
         /* Get bar position from conf */
         if (strcmp(conf.monitor, MONITOR_RELATIVE_FOCUS) == 0)
@@ -411,8 +369,24 @@ Display_context init(Style conf)
             break;
         }
 
-        compute_geometry(conf, &dc, &topleft_x, &topleft_y, &fat_layer,
-                         &available_length);
+        /* Write bar position relative data to X_context */
+        dc.geometry.x.rel = conf.x.rel;
+        dc.geometry.x.abs = conf.x.abs;
+        dc.geometry.y.rel = conf.y.rel;
+        dc.geometry.y.abs = conf.y.abs;
+
+        dc.geometry.outline = conf.outline;
+        dc.geometry.border = conf.border;
+        dc.geometry.padding = conf.padding;
+        dc.geometry.thickness = conf.thickness;
+        dc.geometry.orientation = conf.orientation;
+        dc.geometry.length_dynamic.rel = conf.length.rel;
+        dc.geometry.length_dynamic.abs = conf.length.abs;
+
+        dc.geometry.fat_layer =
+            dc.geometry.padding + dc.geometry.border + dc.geometry.outline;
+
+        compute_geometry(&dc, &topleft_x, &topleft_y);
 
         /* Creation of the window */
         dc.x.window = XCreateWindow(
