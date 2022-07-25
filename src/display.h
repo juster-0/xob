@@ -58,6 +58,20 @@ typedef struct
     char string[MAX_STRING_LEN];
     float rel_x;
     float rel_y;
+    int offset_x;
+    int offset_y;
+    int pos_x;
+    int pos_y;
+    struct {
+        int x;
+        int y;
+    } pos;
+    int width;
+    int height;
+    struct {
+        float x;
+        float y;
+    } align;
 } Text_context;
 
 typedef struct
@@ -94,11 +108,13 @@ typedef struct
     {
         double rel;
         int abs;
+        int offset;
     } x;
     struct
     {
         double rel;
         int abs;
+        int offset;
     } y;
     Bar_position bar_position;
     Orientation orientation;

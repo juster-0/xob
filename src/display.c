@@ -50,63 +50,76 @@ static void draw_empty(X_context x, Geometry_context g, Colors colors)
     /* Fill with transparent layer so other windows can update
      * content behind the bar (works only with compositors) */
     Color transparent = {.red = 0x0, .green = 0x0, .blue = 0x0, .alpha = 0x0};
-    fill_rectangle(x, transparent, 0, 0, g.size_x + 300, g.size_y + 300);
+    fill_rectangle(x, transparent, 0, 0, g.size_x + g.x.offset,
+                   g.size_y + g.y.offset);
 
     /* Outline */
     /* Left */
-    fill_rectangle(x, colors.bg, 0, 0, g.outline,
+    fill_rectangle(x, colors.bg, 0 + g.x.offset, 0 + g.y.offset, g.outline,
                    2 * (g.outline + g.border + g.padding) + size_y(g));
 
     /* Right */
-    fill_rectangle(
-        x, colors.bg, 2 * (g.border + g.padding) + g.outline + size_x(g), 0,
-        g.outline, 2 * (g.outline + g.border + g.padding) + size_y(g));
+    fill_rectangle(x, colors.bg,
+                   2 * (g.border + g.padding) + g.outline + size_x(g) +
+                       g.x.offset,
+                   0 + g.y.offset, g.outline,
+                   2 * (g.outline + g.border + g.padding) + size_y(g));
 
     /* Top */
-    fill_rectangle(x, colors.bg, 0, 0,
+    fill_rectangle(x, colors.bg, 0 + g.x.offset, 0 + g.y.offset,
                    2 * (g.outline + g.border + g.padding) + size_x(g),
                    g.outline);
 
     /* Bottom */
     fill_rectangle(
-        x, colors.bg, 0, 2 * (g.border + g.padding) + g.outline + size_y(g),
+        x, colors.bg, 0 + g.x.offset,
+        2 * (g.border + g.padding) + g.outline + size_y(g) + g.y.offset,
         2 * (g.outline + g.border + g.padding) + size_x(g), g.outline);
 
     /* Border */
     /* Left */
-    fill_rectangle(x, colors.border, g.outline, g.outline, g.border,
+    fill_rectangle(x, colors.border, g.outline + g.x.offset,
+                   g.outline + g.y.offset, g.border,
                    2 * (g.border + g.padding) + size_y(g));
 
     /* Right */
     fill_rectangle(x, colors.border,
-                   g.outline + g.border + 2 * g.padding + size_x(g), g.outline,
-                   g.border, 2 * (g.border + g.padding) + size_y(g));
+                   g.outline + g.border + 2 * g.padding + size_x(g) +
+                       g.x.offset,
+                   g.outline + g.y.offset, g.border,
+                   2 * (g.border + g.padding) + size_y(g));
 
     /* Top */
-    fill_rectangle(x, colors.border, g.outline, g.outline,
+    fill_rectangle(x, colors.border, g.outline + g.x.offset,
+                   g.outline + g.y.offset,
                    2 * (g.border + g.padding) + size_x(g), g.border);
 
     /* Bottom */
-    fill_rectangle(x, colors.border, g.outline,
-                   g.outline + g.border + 2 * g.padding + size_y(g),
+    fill_rectangle(x, colors.border, g.outline + g.x.offset,
+                   g.outline + g.border + 2 * g.padding + size_y(g) +
+                       g.y.offset,
                    2 * (g.border + g.padding) + size_x(g), g.border);
 
     /* Padding */
     /* Left */
-    fill_rectangle(x, colors.bg, g.outline + g.border, g.outline + g.border,
-                   g.padding, 2 * g.padding + size_y(g));
+    fill_rectangle(x, colors.bg, g.outline + g.border + g.x.offset,
+                   g.outline + g.border + g.y.offset, g.padding,
+                   2 * g.padding + size_y(g));
 
     /* Right */
-    fill_rectangle(x, colors.bg, g.outline + g.border + g.padding + size_x(g),
-                   g.outline + g.border, g.padding, 2 * g.padding + size_y(g));
+    fill_rectangle(x, colors.bg,
+                   g.outline + g.border + g.padding + size_x(g) + g.x.offset,
+                   g.outline + g.border + g.y.offset, g.padding,
+                   2 * g.padding + size_y(g));
 
     /* Top */
-    fill_rectangle(x, colors.bg, g.outline + g.border, g.outline + g.border,
-                   2 * g.padding + size_x(g), g.padding);
+    fill_rectangle(x, colors.bg, g.outline + g.border + g.x.offset,
+                   g.outline + g.border + g.y.offset, 2 * g.padding + size_x(g),
+                   g.padding);
 
     /* Bottom */
-    fill_rectangle(x, colors.bg, g.outline + g.border,
-                   g.outline + g.border + g.padding + size_y(g),
+    fill_rectangle(x, colors.bg, g.outline + g.border + g.x.offset,
+                   g.outline + g.border + g.padding + size_y(g) + g.y.offset,
                    2 * g.padding + size_x(g), g.padding);
 }
 
@@ -117,28 +130,32 @@ static void draw_content(X_context x, Geometry_context g, int filled_length,
     if (g.orientation == HORIZONTAL)
     {
         /* Fill foreground color */
-        fill_rectangle(x, colors.fg, g.outline + g.border + g.padding,
-                       g.outline + g.border + g.padding, filled_length,
-                       g.thickness);
+        fill_rectangle(x, colors.fg,
+                       g.outline + g.border + g.padding + g.x.offset,
+                       g.outline + g.border + g.padding + g.y.offset,
+                       filled_length, g.thickness);
 
         /* Fill background color */
         fill_rectangle(x, colors.bg,
-                       g.outline + g.border + g.padding + filled_length,
-                       g.outline + g.border + g.padding,
+                       g.outline + g.border + g.padding + filled_length +
+                           g.x.offset,
+                       g.outline + g.border + g.padding + g.y.offset,
                        g.length - filled_length, g.thickness);
     }
     else
     {
         /* fill foreground color */
-        fill_rectangle(x, colors.fg, g.outline + g.border + g.padding,
+        fill_rectangle(x, colors.fg,
+                       g.outline + g.border + g.padding + g.x.offset,
                        g.outline + g.border + g.padding + g.length -
-                           filled_length,
+                           filled_length + g.y.offset,
                        g.thickness, filled_length);
 
         /* Fill background color */
-        fill_rectangle(x, colors.bg, g.outline + g.border + g.padding,
-                       g.outline + g.border + g.padding, g.thickness,
-                       g.length - filled_length);
+        fill_rectangle(x, colors.bg,
+                       g.outline + g.border + g.padding + g.x.offset,
+                       g.outline + g.border + g.padding + g.y.offset,
+                       g.thickness, g.length - filled_length);
     }
 }
 
@@ -148,15 +165,17 @@ static void draw_separator(X_context x, Geometry_context g, int position,
 {
     if (g.orientation == HORIZONTAL)
     {
-        fill_rectangle(
-            x, color, g.outline + g.border + (g.padding / 2) + position,
-            g.outline + g.border + g.padding, g.padding, g.thickness);
+        fill_rectangle(x, color,
+                       g.outline + g.border + (g.padding / 2) + position +
+                           g.x.offset,
+                       g.outline + g.border + g.padding + g.y.offset, g.padding,
+                       g.thickness);
     }
     else
     {
-        fill_rectangle(x, color, g.outline + g.border + g.padding,
+        fill_rectangle(x, color, g.outline + g.border + g.padding + g.x.offset,
                        g.outline + g.border + (g.padding / 2) + g.length -
-                           position,
+                           position + g.y.offset,
                        g.thickness, g.padding);
     }
 }
@@ -186,6 +205,53 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
                             pdc->geometry.size_y / 2,
                         0, pdc->x.monitor_info.height - pdc->geometry.size_y) +
                  pdc->geometry.y.abs + pdc->x.monitor_info.y;
+}
+
+static void compute_text_position(Display_context *pdc)
+{
+    /* Calculate text postion relative bar */
+    pdc->text_rendering.text.pos_x =
+        pdc->text_rendering.text.rel_x * pdc->geometry.size_x -
+        pdc->text_rendering.text.width * pdc->text_rendering.text.align.x +
+        pdc->text_rendering.text.offset_x;
+    pdc->text_rendering.text.pos_y =
+        pdc->text_rendering.text.rel_y * pdc->geometry.size_y +
+        pdc->text_rendering.text.height * pdc->text_rendering.text.align.y +
+        pdc->text_rendering.text.offset_y;
+
+    /* Calculate offset x*/
+    if (pdc->text_rendering.text.pos_x < 0)
+    {
+        pdc->geometry.x.offset = -pdc->text_rendering.text.pos_x;
+        pdc->text_rendering.text.pos_x = 0;
+    }
+    else
+        pdc->geometry.x.offset = 0;
+
+    /* Calculate offset y */
+    if (pdc->text_rendering.text.pos_y - pdc->text_rendering.text.height < 0)
+    {
+        pdc->geometry.y.offset =
+            -(pdc->text_rendering.text.pos_y - pdc->text_rendering.text.height);
+        pdc->text_rendering.text.pos_y = pdc->text_rendering.text.height;
+    }
+    else
+        pdc->geometry.y.offset = 0;
+
+    /* Calculate window width */
+    if (pdc->geometry.x.offset + pdc->geometry.size_x >
+        pdc->text_rendering.text.width + pdc->text_rendering.text.pos_x)
+        pdc->geometry.size_x = pdc->geometry.x.offset + pdc->geometry.size_x;
+    else
+        pdc->geometry.size_x =
+            pdc->text_rendering.text.width + pdc->text_rendering.text.pos_x;
+
+    /* Calculate window height */
+    if (pdc->text_rendering.text.pos_y >
+        pdc->geometry.y.offset + pdc->geometry.size_y)
+        pdc->geometry.size_y = pdc->text_rendering.text.pos_y;
+    else
+        pdc->geometry.size_y = pdc->geometry.y.offset + pdc->geometry.size_y;
 }
 
 /* Set combined positon */
@@ -267,8 +333,12 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
 
     compute_geometry(pdc, &topleft_x, &topleft_y);
 
-    XMoveResizeWindow(pdc->x.display, pdc->x.window, topleft_x, topleft_y,
-                      pdc->geometry.size_x + 300, pdc->geometry.size_y + 300);
+    compute_text_position(pdc);
+
+    XMoveResizeWindow(pdc->x.display, pdc->x.window,
+                      topleft_x - pdc->geometry.x.offset,
+                      topleft_y - pdc->geometry.y.offset, pdc->geometry.size_x,
+                      pdc->geometry.size_y);
 }
 
 /* Mobe the bar to monitor with focused window */
@@ -388,35 +458,31 @@ Display_context init(Style conf)
 
         compute_geometry(&dc, &topleft_x, &topleft_y);
 
-        /* Creation of the window */
-        dc.x.window = XCreateWindow(
-            dc.x.display, root, topleft_x, topleft_y, dc.geometry.size_x + 300,
-            dc.geometry.size_y + 300, 0, dc_depth.depth, InputOutput,
-            dc_depth.visuals, window_attributes_flags, &window_attributes);
         printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
         /* Set text rendering context */
         char *font_color = "#ffffff";
         // char *font_name = "times:pixelsize=50";
         char *font_name = "Font Awesome 5 Free,Font Awesome 5 Free "
-                          "Solid:style=Solid:pixelsize=40:spacing=40";
+                          "Solid:style=Solid:pixelsize=100:spacing=40";
         // char *text = "Hello world";
-        // char *text = "";
-        char *text = "";
+        char *text = "";
+        // char *text = "";
         // dc.text_rendering.text.rel_x = 1.0;
-        dc.text_rendering.text.rel_x = 0.5;
+        dc.text_rendering.text.rel_x = 0.0;
         // dc.text_rendering.text.rel_y = 1.0;
-        dc.text_rendering.text.rel_y = 0.5;
+        dc.text_rendering.text.rel_y = 0.0;
+        dc.text_rendering.text.align.x = 0.0;
+        dc.text_rendering.text.align.y = 0.0;
+        dc.text_rendering.text.offset_x = -20;
+        dc.text_rendering.text.offset_y = -10;
 
+        /* Load and configure fonts and colors */
         strncpy(dc.text_rendering.text.string, text, MAX_STRING_LEN - 1);
         dc.text_rendering.text.string[MAX_STRING_LEN - 1] = '\0';
 
         dc.text_rendering.colormap =
             XCreateColormap(dc.x.display, root, dc_depth.visuals, AllocNone);
         dc.text_rendering.visual = dc_depth.visuals;
-
-        dc.text_rendering.xft_draw =
-            XftDrawCreate(dc.x.display, dc.x.window, dc.text_rendering.visual,
-                          dc.text_rendering.colormap);
 
         dc.text_rendering.text.font =
             XftFontOpenName(dc.x.display, dc.x.screen_number, font_name);
@@ -429,6 +495,27 @@ Display_context init(Style conf)
                                dc.text_rendering.colormap, font_color,
                                &dc.text_rendering.text.font_color))
             fprintf(stderr, "Error: Color \"%s\" is not loaded\n", font_color);
+
+        /* Calculate text sizes */
+        XGlyphInfo text_info;
+        XftTextExtentsUtf8(dc.x.display, dc.text_rendering.text.font,
+                           (const FcChar8 *)dc.text_rendering.text.string,
+                           strlen(dc.text_rendering.text.string), &text_info);
+        dc.text_rendering.text.width = text_info.width;
+        dc.text_rendering.text.height = text_info.height;
+
+        compute_text_position(&dc);
+
+        /* Creation of the window */
+        dc.x.window = XCreateWindow(
+            dc.x.display, root, topleft_x - dc.geometry.x.offset,
+            topleft_y - dc.geometry.y.offset, dc.geometry.size_x,
+            dc.geometry.size_y, 0, dc_depth.depth, InputOutput,
+            dc_depth.visuals, window_attributes_flags, &window_attributes);
+
+        dc.text_rendering.xft_draw =
+            XftDrawCreate(dc.x.display, dc.x.window, dc.text_rendering.visual,
+                          dc.text_rendering.colormap);
 
         /* Set a WM_CLASS for the window */
         XClassHint *class_hint = XAllocClassHint();
@@ -554,24 +641,13 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
 
     XFlush(pdc->x.display);
 
-    /************************ Text Rendering ************************/
-    {
-        XGlyphInfo text_info;
-        XftTextExtentsUtf8(pdc->x.display, pdc->text_rendering.text.font,
-                           (const FcChar8 *)pdc->text_rendering.text.string,
-                           strlen(pdc->text_rendering.text.string), &text_info);
-
-        int tpos_x = pdc->text_rendering.text.rel_x * pdc->geometry.size_x -
-                     text_info.width * 0.5;
-        int tpos_y = pdc->text_rendering.text.rel_y * pdc->geometry.size_y +
-                     text_info.height * 0.5;
-
-        XftDrawStringUtf8(pdc->text_rendering.xft_draw,
-                          &pdc->text_rendering.text.font_color,
-                          pdc->text_rendering.text.font, tpos_x, tpos_y,
-                          (const FcChar8 *)pdc->text_rendering.text.string,
-                          strlen(pdc->text_rendering.text.string));
-    }
+    /* Draw text */
+    XftDrawStringUtf8(
+        pdc->text_rendering.xft_draw, &pdc->text_rendering.text.font_color,
+        pdc->text_rendering.text.font, pdc->text_rendering.text.pos_x,
+        pdc->text_rendering.text.pos_y,
+        (const FcChar8 *)pdc->text_rendering.text.string,
+        strlen(pdc->text_rendering.text.string));
 
     XFlush(pdc->x.display);
 }
