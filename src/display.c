@@ -210,46 +210,47 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 static void compute_text_position(Display_context *pdc)
 {
     /* Calculate text postion relative bar */
-    pdc->text_rendering.text.pos_x =
-        pdc->text_rendering.text.rel_x * pdc->geometry.size_x -
+    pdc->text_rendering.text.pos.x =
+        pdc->text_rendering.text.x.rel * pdc->geometry.size_x -
         pdc->text_rendering.text.width * pdc->text_rendering.text.align.x +
-        pdc->text_rendering.text.offset_x;
-    pdc->text_rendering.text.pos_y =
-        pdc->text_rendering.text.rel_y * pdc->geometry.size_y +
-        pdc->text_rendering.text.height * pdc->text_rendering.text.align.y +
-        pdc->text_rendering.text.offset_y;
+        pdc->text_rendering.text.x.abs;
+    pdc->text_rendering.text.pos.y =
+        pdc->text_rendering.text.y.rel * pdc->geometry.size_y +
+        pdc->text_rendering.text.height *
+            (1.0 - pdc->text_rendering.text.align.y) +
+        pdc->text_rendering.text.y.abs;
 
     /* Calculate offset x*/
-    if (pdc->text_rendering.text.pos_x < 0)
+    if (pdc->text_rendering.text.pos.x < 0)
     {
-        pdc->geometry.x.offset = -pdc->text_rendering.text.pos_x;
-        pdc->text_rendering.text.pos_x = 0;
+        pdc->geometry.x.offset = -pdc->text_rendering.text.pos.x;
+        pdc->text_rendering.text.pos.x = 0;
     }
     else
         pdc->geometry.x.offset = 0;
 
     /* Calculate offset y */
-    if (pdc->text_rendering.text.pos_y - pdc->text_rendering.text.height < 0)
+    if (pdc->text_rendering.text.pos.y - pdc->text_rendering.text.height < 0)
     {
         pdc->geometry.y.offset =
-            -(pdc->text_rendering.text.pos_y - pdc->text_rendering.text.height);
-        pdc->text_rendering.text.pos_y = pdc->text_rendering.text.height;
+            -(pdc->text_rendering.text.pos.y - pdc->text_rendering.text.height);
+        pdc->text_rendering.text.pos.y = pdc->text_rendering.text.height;
     }
     else
         pdc->geometry.y.offset = 0;
 
     /* Calculate window width */
     if (pdc->geometry.x.offset + pdc->geometry.size_x >
-        pdc->text_rendering.text.width + pdc->text_rendering.text.pos_x)
+        pdc->text_rendering.text.width + pdc->text_rendering.text.pos.x)
         pdc->geometry.size_x = pdc->geometry.x.offset + pdc->geometry.size_x;
     else
         pdc->geometry.size_x =
-            pdc->text_rendering.text.width + pdc->text_rendering.text.pos_x;
+            pdc->text_rendering.text.width + pdc->text_rendering.text.pos.x;
 
     /* Calculate window height */
-    if (pdc->text_rendering.text.pos_y >
+    if (pdc->text_rendering.text.pos.y >
         pdc->geometry.y.offset + pdc->geometry.size_y)
-        pdc->geometry.size_y = pdc->text_rendering.text.pos_y;
+        pdc->geometry.size_y = pdc->text_rendering.text.pos.y;
     else
         pdc->geometry.size_y = pdc->geometry.y.offset + pdc->geometry.size_y;
 }
@@ -465,16 +466,17 @@ Display_context init(Style conf)
         char *font_name = "Font Awesome 5 Free,Font Awesome 5 Free "
                           "Solid:style=Solid:pixelsize=100:spacing=40";
         // char *text = "Hello world";
-        char *text = "";
+        // char *text = "";
+        char *text = "";
         // char *text = "";
-        // dc.text_rendering.text.rel_x = 1.0;
-        dc.text_rendering.text.rel_x = 0.0;
-        // dc.text_rendering.text.rel_y = 1.0;
-        dc.text_rendering.text.rel_y = 0.0;
+        // dc.text_rendering.text.x.rel = 1.0;
+        dc.text_rendering.text.x.rel = 1.0;
+        // dc.text_rendering.text.y.rel = 1.0;
+        dc.text_rendering.text.y.rel = 0.5;
         dc.text_rendering.text.align.x = 0.0;
-        dc.text_rendering.text.align.y = 0.0;
-        dc.text_rendering.text.offset_x = -20;
-        dc.text_rendering.text.offset_y = -10;
+        dc.text_rendering.text.align.y = 0.5;
+        dc.text_rendering.text.x.abs = 10;
+        dc.text_rendering.text.y.abs = 0;
 
         /* Load and configure fonts and colors */
         strncpy(dc.text_rendering.text.string, text, MAX_STRING_LEN - 1);
@@ -502,7 +504,12 @@ Display_context init(Style conf)
                            (const FcChar8 *)dc.text_rendering.text.string,
                            strlen(dc.text_rendering.text.string), &text_info);
         dc.text_rendering.text.width = text_info.width;
-        dc.text_rendering.text.height = text_info.height;
+        // dc.text_rendering.text.height = text_info.height;
+        dc.text_rendering.text.height = text_info.y;
+        // printf("x[%hd] y[%hd] xOff[%hd] yOff[%hd] w[%hu] h[%hu]\n",
+        // text_info.x,
+        //        text_info.y, text_info.xOff, text_info.yOff, text_info.width,
+        //        text_info.height);
 
         compute_text_position(&dc);
 
@@ -644,8 +651,8 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
     /* Draw text */
     XftDrawStringUtf8(
         pdc->text_rendering.xft_draw, &pdc->text_rendering.text.font_color,
-        pdc->text_rendering.text.font, pdc->text_rendering.text.pos_x,
-        pdc->text_rendering.text.pos_y,
+        pdc->text_rendering.text.font, pdc->text_rendering.text.pos.x,
+        pdc->text_rendering.text.pos.y,
         (const FcChar8 *)pdc->text_rendering.text.string,
         strlen(pdc->text_rendering.text.string));
 

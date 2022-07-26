@@ -56,19 +56,24 @@ typedef struct
     XftColor font_color;
     XftFont *font;
     char string[MAX_STRING_LEN];
-    float rel_x;
-    float rel_y;
-    int offset_x;
-    int offset_y;
-    int pos_x;
-    int pos_y;
     struct {
         int x;
         int y;
     } pos;
     int width;
     int height;
-    struct {
+    struct
+    {
+        float rel;
+        int abs;
+    } x;
+    struct
+    {
+        float rel;
+        int abs;
+    } y;
+    struct
+    {
         float x;
         float y;
     } align;
