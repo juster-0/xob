@@ -395,6 +395,7 @@ Display_context init(Style conf)
     XSetWindowAttributes window_attributes;
     static long window_attributes_flags =
         CWColormap | CWBorderPixel | CWOverrideRedirect;
+    int str_len;
 
     dc.x.display = XOpenDisplay(NULL);
     if (dc.x.display != NULL)
@@ -459,50 +460,46 @@ Display_context init(Style conf)
 
         compute_geometry(&dc, &topleft_x, &topleft_y);
 
-        printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
+        // printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
+
         /* Set text rendering context */
-        char *font_color = "#ffffff";
-        // char *font_name = "times:pixelsize=50";
-        char *font_name = "Font Awesome 5 Free,Font Awesome 5 Free "
-                          "Solid:style=Solid:pixelsize=100:spacing=40";
-        // char *text = "Hello world";
-        // char *text = "";
-        char *text = "";
-        // char *text = "";
-        // dc.text_rendering.text.x.rel = 1.0;
-        dc.text_rendering.text.x.rel = 1.0;
-        // dc.text_rendering.text.y.rel = 1.0;
-        dc.text_rendering.text.y.rel = 0.5;
-        dc.text_rendering.text.align.x = 0.0;
-        dc.text_rendering.text.align.y = 0.5;
-        dc.text_rendering.text.x.abs = 10;
-        dc.text_rendering.text.y.abs = 0;
+        dc.text_rendering.text.x.rel = conf.text.x.rel;
+        dc.text_rendering.text.x.abs = conf.text.x.abs;
+        dc.text_rendering.text.y.rel = conf.text.y.rel;
+        dc.text_rendering.text.y.abs = conf.text.y.abs;
+
+        dc.text_rendering.text.align.x = conf.text.align.x;
+        dc.text_rendering.text.align.y = conf.text.align.y;
 
         /* Load and configure fonts and colors */
-        strncpy(dc.text_rendering.text.string, text, MAX_STRING_LEN - 1);
-        dc.text_rendering.text.string[MAX_STRING_LEN - 1] = '\0';
+        str_len = strlen(conf.text.string);
+        dc.text_rendering.text.string = (char *)malloc(str_len + 1);
+        strcpy(dc.text_rendering.text.string, conf.text.string);
+        dc.text_rendering.text.string[str_len] = '\0';
 
         dc.text_rendering.colormap =
             XCreateColormap(dc.x.display, root, dc_depth.visuals, AllocNone);
         dc.text_rendering.visual = dc_depth.visuals;
 
-        dc.text_rendering.text.font =
-            XftFontOpenName(dc.x.display, dc.x.screen_number, font_name);
+        dc.text_rendering.text.font = XftFontOpenName(
+            dc.x.display, dc.x.screen_number, conf.text.font_name);
         if (dc.text_rendering.text.font)
-            fprintf(stderr, "Info: Loaded font \"%s\"\n", font_name);
+            fprintf(stderr, "Info: Loaded font \"%s\"\n", conf.text.font_name);
         else
-            fprintf(stderr, "Error: Font \"%s\" is not loaded\n", font_name);
+            fprintf(stderr, "Error: Font \"%s\" is not loaded\n",
+                    conf.text.font_name);
 
         if (!XftColorAllocName(dc.x.display, dc.text_rendering.visual,
-                               dc.text_rendering.colormap, font_color,
+                               dc.text_rendering.colormap, conf.text.color,
                                &dc.text_rendering.text.font_color))
-            fprintf(stderr, "Error: Color \"%s\" is not loaded\n", font_color);
+            fprintf(stderr, "Error: Color \"%s\" is not loaded\n",
+                    conf.text.color);
 
         /* Calculate text sizes */
         XGlyphInfo text_info;
         XftTextExtentsUtf8(dc.x.display, dc.text_rendering.text.font,
                            (const FcChar8 *)dc.text_rendering.text.string,
-                           strlen(dc.text_rendering.text.string), &text_info);
+                           str_len, &text_info);
         dc.text_rendering.text.width = text_info.width;
         // dc.text_rendering.text.height = text_info.height;
         dc.text_rendering.text.height = text_info.y;
@@ -547,6 +544,7 @@ Display_context init(Style conf)
 /* PUBLIC Cleans the X memory buffers. */
 void display_context_destroy(Display_context *pdc)
 {
+    free(pdc->text_rendering.text.string);
     XftColorFree(pdc->x.display, pdc->text_rendering.visual,
                  pdc->text_rendering.colormap,
                  &pdc->text_rendering.text.font_color);

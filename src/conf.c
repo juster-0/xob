@@ -245,6 +245,71 @@ static int config_setting_lookup_monitor(const config_setting_t *setting,
     return CONFIG_TRUE;
 }
 
+/* Lookup for text section */
+static int config_setting_lookup_text(const config_setting_t *setting,
+                                      const char *name, Text *text)
+{
+    config_setting_t *text_setting;
+    config_setting_t *align_setting;
+
+    text_setting = config_setting_get_member(setting, name);
+    if (text_setting != NULL)
+    {
+        const char *stringvalue;
+        if (config_setting_lookup_string(text_setting, "font_name",
+                                         &stringvalue))
+        {
+            text->font_name = (char *)malloc(strlen(stringvalue) + 1);
+            strcpy(text->font_name, stringvalue);
+            text->font_name[strlen(stringvalue)] = '\0';
+        }
+        else
+            text->font_name = NULL;
+
+        if (config_setting_lookup_string(text_setting, "string", &stringvalue))
+        {
+            text->string = (char *)malloc(strlen(stringvalue) + 1);
+            strcpy(text->string, stringvalue);
+            text->string[strlen(stringvalue)] = '\0';
+        }
+        else
+            text->string = NULL;
+
+        if (config_setting_lookup_string(text_setting, "color", &stringvalue))
+        {
+            if (color_spec_is_valid(stringvalue))
+            {
+                strncpy(text->color, stringvalue, 10);
+                text->color[strlen(stringvalue)] = '\0';
+            }
+            else
+            {
+                fprintf(stderr,
+                        "Error: in configuration, line %d - "
+                        "Invalid color specification.\n",
+                        config_setting_source_line(setting));
+            }
+        }
+        else
+            text->color[0] = '\0';
+
+        config_setting_lookup_dim(text_setting, "x", &text->x);
+        config_setting_lookup_dim(text_setting, "y", &text->y);
+
+        align_setting = config_setting_get_member(text_setting, "align");
+        if (align_setting != NULL)
+        {
+            config_setting_lookup_float_or_int(align_setting, "x",
+                                               &text->align.x);
+            config_setting_lookup_float_or_int(align_setting, "y",
+                                               &text->align.y);
+        }
+
+        return CONFIG_TRUE;
+    }
+    return CONFIG_FALSE;
+}
+
 Style parse_style_config(FILE *file, const char *stylename, Style default_style)
 {
     config_t config;
@@ -284,6 +349,8 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
                 config_setting_lookup_colors(color_config, "altoverflow",
                                              &style.colorscheme.altoverflow);
             }
+
+            config_setting_lookup_text(xob_config, "text", &style.text);
         }
         else
         {
@@ -298,4 +365,10 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
 
     config_destroy(&config);
     return style;
+}
+
+void style_free(const Style *style)
+{
+    free(style->text.font_name);
+    free(style->text.string);
 }

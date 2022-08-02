@@ -26,7 +26,6 @@
 #define STATE_ALT (0x1)
 #define STATE_OVERFLOW (0x1 << 1)
 #define STATE_MAPPED (0x1 << 2)
-#define MAX_STRING_LEN 40
 
 typedef enum
 {
@@ -55,28 +54,17 @@ typedef struct
 {
     XftColor font_color;
     XftFont *font;
-    char string[MAX_STRING_LEN];
-    struct {
+    char *string;
+    struct
+    {
         int x;
         int y;
     } pos;
     int width;
     int height;
-    struct
-    {
-        float rel;
-        int abs;
-    } x;
-    struct
-    {
-        float rel;
-        int abs;
-    } y;
-    struct
-    {
-        float x;
-        float y;
-    } align;
+    Dim x;
+    Dim y;
+    Align_pos align;
 } Text_context;
 
 typedef struct

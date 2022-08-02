@@ -179,6 +179,8 @@ int main(int argc, char *argv[])
     Input_value input_value;
     Display_context display_context = init(style);
 
+    style_free(&style);
+
     if (display_context.x.display == NULL)
     {
         fprintf(stderr, "Error: Cannot open display\n");

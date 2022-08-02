@@ -69,6 +69,22 @@ typedef enum
 
 typedef struct
 {
+    double x;
+    double y;
+} Align_pos;
+
+typedef struct
+{
+    char *font_name;
+    char *string;
+    char color[11];
+    Dim x;
+    Dim y;
+    Align_pos align;
+} Text;
+
+typedef struct
+{
     char monitor[LNAME_MONITOR];
     Dim x;
     Dim y;
@@ -80,6 +96,7 @@ typedef struct
     Orientation orientation;
     Overflow_mode overflow;
     Colorscheme colorscheme;
+    Text text;
 } Style;
 
 /* clang-format off */
@@ -214,5 +231,6 @@ typedef struct
 
 Style parse_style_config(FILE *filename, const char *stylename,
                          Style default_style);
+void style_free(const Style *style);
 
 #endif /* __CONF_H__ */
