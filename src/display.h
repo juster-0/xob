@@ -69,7 +69,7 @@ typedef struct
 
 typedef struct
 {
-    Text_context text;
+    Text_context *ptext;
     int text_count;
 
     XftDraw *xft_draw;

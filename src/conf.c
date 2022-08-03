@@ -286,6 +286,7 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
                         "Error: in configuration, line %d - "
                         "Invalid color specification.\n",
                         config_setting_source_line(text_setting));
+                return CONFIG_FALSE;
             }
         }
         else
@@ -315,6 +316,7 @@ static int config_setting_lookup_text_list(const config_setting_t *setting,
     config_setting_t *text_settings = config_setting_get_member(setting, name);
     config_setting_t *text_setting;
     int i;
+    int status = CONFIG_TRUE;
 
     if (text_settings != NULL)
     {
@@ -322,22 +324,32 @@ static int config_setting_lookup_text_list(const config_setting_t *setting,
         {
             fprintf(stderr, "Error: text is not a list\n");
         }
+
         ptext_list->len = config_setting_length(text_settings);
-        fprintf(stderr, "Elements in list is [%d]\n", ptext_list->len);
         ptext_list->ptext = (Text *)malloc(sizeof(Text) * ptext_list->len);
-        for (i = 0; i < ptext_list->len; i++)
+        for (i = 0; i < ptext_list->len && status == CONFIG_TRUE; i++)
         {
             text_setting = config_setting_get_elem(text_settings, i);
-            config_setting_lookup_text_elem(text_setting,
-                                            &ptext_list->ptext[i]);
+            status = config_setting_lookup_text_elem(text_setting,
+                                                     &ptext_list->ptext[i]);
+        }
+
+        /* if error occurred free all memory */
+        if (status != CONFIG_TRUE)
+        {
+            int i2;
+            for (i2 = i; i2 >= 0; i2--)
+            {
+                free(ptext_list->ptext[i2].string);
+                free(ptext_list->ptext[i2].font_name);
+            }
+            return CONFIG_FALSE;
         }
         return CONFIG_TRUE;
     }
     else
     {
         fprintf(stderr, "Info: No text config found\n");
-        ptext_list->ptext = NULL;
-        ptext_list->len = 0;
         return CONFIG_FALSE;
     }
 }
@@ -382,8 +394,12 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
                                              &style.colorscheme.altoverflow);
             }
 
-            config_setting_lookup_text_list(xob_config, "text",
-                                            &style.text_list);
+            if (config_setting_lookup_text_list(
+                    xob_config, "text", &style.text_list) == CONFIG_FALSE)
+            {
+                style.text_list.len = 0;
+                style.text_list.ptext = NULL;
+            }
 
             int i;
             for (i = 0; i < style.text_list.len; i++)

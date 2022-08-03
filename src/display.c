@@ -210,47 +210,48 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 static void compute_text_position(Display_context *pdc)
 {
     /* Calculate text postion relative bar */
-    pdc->text_rendering.text.pos.x =
-        pdc->text_rendering.text.x.rel * pdc->geometry.size_x -
-        pdc->text_rendering.text.width * pdc->text_rendering.text.align.x +
-        pdc->text_rendering.text.x.abs;
-    pdc->text_rendering.text.pos.y =
-        pdc->text_rendering.text.y.rel * pdc->geometry.size_y +
-        pdc->text_rendering.text.height *
-            (1.0 - pdc->text_rendering.text.align.y) +
-        pdc->text_rendering.text.y.abs;
+    pdc->text_rendering.ptext->pos.x =
+        pdc->text_rendering.ptext->x.rel * pdc->geometry.size_x -
+        pdc->text_rendering.ptext->width * pdc->text_rendering.ptext->align.x +
+        pdc->text_rendering.ptext->x.abs;
+    pdc->text_rendering.ptext->pos.y =
+        pdc->text_rendering.ptext->y.rel * pdc->geometry.size_y +
+        pdc->text_rendering.ptext->height *
+            (1.0 - pdc->text_rendering.ptext->align.y) +
+        pdc->text_rendering.ptext->y.abs;
 
     /* Calculate offset x*/
-    if (pdc->text_rendering.text.pos.x < 0)
+    if (pdc->text_rendering.ptext->pos.x < 0)
     {
-        pdc->geometry.x.offset = -pdc->text_rendering.text.pos.x;
-        pdc->text_rendering.text.pos.x = 0;
+        pdc->geometry.x.offset = -pdc->text_rendering.ptext->pos.x;
+        pdc->text_rendering.ptext->pos.x = 0;
     }
     else
         pdc->geometry.x.offset = 0;
 
     /* Calculate offset y */
-    if (pdc->text_rendering.text.pos.y - pdc->text_rendering.text.height < 0)
+    if (pdc->text_rendering.ptext->pos.y - pdc->text_rendering.ptext->height <
+        0)
     {
-        pdc->geometry.y.offset =
-            -(pdc->text_rendering.text.pos.y - pdc->text_rendering.text.height);
-        pdc->text_rendering.text.pos.y = pdc->text_rendering.text.height;
+        pdc->geometry.y.offset = -(pdc->text_rendering.ptext->pos.y -
+                                   pdc->text_rendering.ptext->height);
+        pdc->text_rendering.ptext->pos.y = pdc->text_rendering.ptext->height;
     }
     else
         pdc->geometry.y.offset = 0;
 
     /* Calculate window width */
     if (pdc->geometry.x.offset + pdc->geometry.size_x >
-        pdc->text_rendering.text.width + pdc->text_rendering.text.pos.x)
+        pdc->text_rendering.ptext->width + pdc->text_rendering.ptext->pos.x)
         pdc->geometry.size_x = pdc->geometry.x.offset + pdc->geometry.size_x;
     else
         pdc->geometry.size_x =
-            pdc->text_rendering.text.width + pdc->text_rendering.text.pos.x;
+            pdc->text_rendering.ptext->width + pdc->text_rendering.ptext->pos.x;
 
     /* Calculate window height */
-    if (pdc->text_rendering.text.pos.y >
+    if (pdc->text_rendering.ptext->pos.y >
         pdc->geometry.y.offset + pdc->geometry.size_y)
-        pdc->geometry.size_y = pdc->text_rendering.text.pos.y;
+        pdc->geometry.size_y = pdc->text_rendering.ptext->pos.y;
     else
         pdc->geometry.size_y = pdc->geometry.y.offset + pdc->geometry.size_y;
 }
@@ -334,7 +335,8 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
 
     compute_geometry(pdc, &topleft_x, &topleft_y);
 
-    compute_text_position(pdc);
+    if (pdc->text_rendering.text_count != 0)
+        compute_text_position(pdc);
 
     XMoveResizeWindow(pdc->x.display, pdc->x.window,
                       topleft_x - pdc->geometry.x.offset,
@@ -382,6 +384,83 @@ static void move_resize_to_pointer_monitor(Display_context *pdc)
     move_resize_to_coords_monitor(pdc, pointer_x, pointer_y);
 }
 
+static void init_text(Display_context *pdc, const Style *pconf)
+{
+    int i, str_len;
+    Depth dc_depth;
+    XGlyphInfo text_info;
+
+    pdc->text_rendering.text_count = pconf->text_list.len;
+
+    /* if no text found in conf then not init text rendering */
+    if (pdc->text_rendering.text_count == 0)
+    {
+        pdc->geometry.x.offset = 0;
+        pdc->geometry.y.offset = 0;
+        pdc->text_rendering.ptext = NULL;
+        return;
+    }
+    pdc->text_rendering.ptext = (Text_context *)malloc(
+        sizeof(Text_context) * pdc->text_rendering.text_count);
+
+    dc_depth = get_display_context_depth(*pdc);
+    pdc->text_rendering.colormap = XCreateColormap(
+        pdc->x.display, RootWindow(pdc->x.display, pdc->x.screen_number),
+        dc_depth.visuals, AllocNone);
+    pdc->text_rendering.visual = dc_depth.visuals;
+
+    for (i = 0; i < pdc->text_rendering.text_count; i++)
+    {
+        /* Copy text position data to Text_context structure */
+        pdc->text_rendering.ptext[i].x.rel = pconf->text_list.ptext[i].x.rel;
+        pdc->text_rendering.ptext[i].x.abs = pconf->text_list.ptext[i].x.abs;
+        pdc->text_rendering.ptext[i].y.rel = pconf->text_list.ptext[i].y.rel;
+        pdc->text_rendering.ptext[i].y.abs = pconf->text_list.ptext[i].y.abs;
+
+        pdc->text_rendering.ptext[i].align.x =
+            pconf->text_list.ptext[i].align.x;
+        pdc->text_rendering.ptext[i].align.y =
+            pconf->text_list.ptext[i].align.y;
+
+        /*** Load and configure fonts and colors ***/
+
+        /* Copy string to context */
+        str_len = strlen(pconf->text_list.ptext[i].string);
+        pdc->text_rendering.ptext[i].string = (char *)malloc(str_len + 1);
+        strcpy(pdc->text_rendering.ptext[i].string,
+               pconf->text_list.ptext[i].string);
+        pdc->text_rendering.ptext[i].string[str_len] = '\0';
+
+        /* Load font */
+        pdc->text_rendering.ptext[i].font =
+            XftFontOpenName(pdc->x.display, pdc->x.screen_number,
+                            pconf->text_list.ptext[i].font_name);
+        if (pdc->text_rendering.ptext[i].font)
+            fprintf(stderr, "Info: Loaded font \"%s\"\n",
+                    pconf->text_list.ptext[i].font_name);
+        else
+            fprintf(stderr, "Error: Font \"%s\" is not loaded\n",
+                    pconf->text_list.ptext[i].font_name);
+
+        /* Load color */
+        if (!XftColorAllocName(pdc->x.display, pdc->text_rendering.visual,
+                               pdc->text_rendering.colormap,
+                               pconf->text_list.ptext[i].color,
+                               &pdc->text_rendering.ptext[i].font_color))
+            fprintf(stderr, "Error: Color \"%s\" is not loaded\n",
+                    pconf->text_list.ptext[i].color);
+
+        /* Calculate text sizes */
+        XftTextExtentsUtf8(pdc->x.display, pdc->text_rendering.ptext[i].font,
+                           (const FcChar8 *)pdc->text_rendering.ptext[i].string,
+                           str_len, &text_info);
+        pdc->text_rendering.ptext[i].width = text_info.width;
+        // dc.text_rendering.ptext->height = text_info.height;
+        pdc->text_rendering.ptext[i].height = text_info.y;
+    }
+    compute_text_position(pdc);
+}
+
 /* PUBLIC Returns a new display context from a given configuration. If the
  * .x.display field of the returned display context is NULL, display could not
  * have been opened.*/
@@ -395,7 +474,6 @@ Display_context init(Style conf)
     XSetWindowAttributes window_attributes;
     static long window_attributes_flags =
         CWColormap | CWBorderPixel | CWOverrideRedirect;
-    int str_len;
 
     dc.x.display = XOpenDisplay(NULL);
     if (dc.x.display != NULL)
@@ -460,57 +538,8 @@ Display_context init(Style conf)
 
         compute_geometry(&dc, &topleft_x, &topleft_y);
 
-        // printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
-
-        /* Set text rendering context */
-        dc.text_rendering.text.x.rel = conf.text_list.ptext->x.rel;
-        dc.text_rendering.text.x.abs = conf.text_list.ptext->x.abs;
-        dc.text_rendering.text.y.rel = conf.text_list.ptext->y.rel;
-        dc.text_rendering.text.y.abs = conf.text_list.ptext->y.abs;
-
-        dc.text_rendering.text.align.x = conf.text_list.ptext->align.x;
-        dc.text_rendering.text.align.y = conf.text_list.ptext->align.y;
-
-        /* Load and configure fonts and colors */
-        str_len = strlen(conf.text_list.ptext->string);
-        dc.text_rendering.text.string = (char *)malloc(str_len + 1);
-        strcpy(dc.text_rendering.text.string, conf.text_list.ptext->string);
-        dc.text_rendering.text.string[str_len] = '\0';
-
-        dc.text_rendering.colormap =
-            XCreateColormap(dc.x.display, root, dc_depth.visuals, AllocNone);
-        dc.text_rendering.visual = dc_depth.visuals;
-
-        dc.text_rendering.text.font = XftFontOpenName(
-            dc.x.display, dc.x.screen_number, conf.text_list.ptext->font_name);
-        if (dc.text_rendering.text.font)
-            fprintf(stderr, "Info: Loaded font \"%s\"\n",
-                    conf.text_list.ptext->font_name);
-        else
-            fprintf(stderr, "Error: Font \"%s\" is not loaded\n",
-                    conf.text_list.ptext->font_name);
-
-        if (!XftColorAllocName(dc.x.display, dc.text_rendering.visual,
-                               dc.text_rendering.colormap,
-                               conf.text_list.ptext->color,
-                               &dc.text_rendering.text.font_color))
-            fprintf(stderr, "Error: Color \"%s\" is not loaded\n",
-                    conf.text_list.ptext->color);
-
-        /* Calculate text sizes */
-        XGlyphInfo text_info;
-        XftTextExtentsUtf8(dc.x.display, dc.text_rendering.text.font,
-                           (const FcChar8 *)dc.text_rendering.text.string,
-                           str_len, &text_info);
-        dc.text_rendering.text.width = text_info.width;
-        // dc.text_rendering.text.height = text_info.height;
-        dc.text_rendering.text.height = text_info.y;
-        // printf("x[%hd] y[%hd] xOff[%hd] yOff[%hd] w[%hu] h[%hu]\n",
-        // text_info.x,
-        //        text_info.y, text_info.xOff, text_info.yOff, text_info.width,
-        //        text_info.height);
-
-        compute_text_position(&dc);
+        /* init text context */
+        init_text(&dc, &conf);
 
         /* Creation of the window */
         dc.x.window = XCreateWindow(
@@ -546,10 +575,16 @@ Display_context init(Style conf)
 /* PUBLIC Cleans the X memory buffers. */
 void display_context_destroy(Display_context *pdc)
 {
-    free(pdc->text_rendering.text.string);
-    XftColorFree(pdc->x.display, pdc->text_rendering.visual,
-                 pdc->text_rendering.colormap,
-                 &pdc->text_rendering.text.font_color);
+    int i;
+    for (i = 0; i < pdc->text_rendering.text_count; i++)
+    {
+        free(pdc->text_rendering.ptext[i].string);
+        XftColorFree(pdc->x.display, pdc->text_rendering.visual,
+                     pdc->text_rendering.colormap,
+                     &pdc->text_rendering.ptext[i].font_color);
+    }
+    free(pdc->text_rendering.ptext);
+
     XftDrawDestroy(pdc->text_rendering.xft_draw);
 
     XCloseDisplay(pdc->x.display);
@@ -649,12 +684,16 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
     XFlush(pdc->x.display);
 
     /* Draw text */
-    XftDrawStringUtf8(
-        pdc->text_rendering.xft_draw, &pdc->text_rendering.text.font_color,
-        pdc->text_rendering.text.font, pdc->text_rendering.text.pos.x,
-        pdc->text_rendering.text.pos.y,
-        (const FcChar8 *)pdc->text_rendering.text.string,
-        strlen(pdc->text_rendering.text.string));
+    if (pdc->text_rendering.text_count != 0)
+    {
+        XftDrawStringUtf8(pdc->text_rendering.xft_draw,
+                          &pdc->text_rendering.ptext->font_color,
+                          pdc->text_rendering.ptext->font,
+                          pdc->text_rendering.ptext->pos.x,
+                          pdc->text_rendering.ptext->pos.y,
+                          (const FcChar8 *)pdc->text_rendering.ptext->string,
+                          strlen(pdc->text_rendering.ptext->string));
+    }
 
     XFlush(pdc->x.display);
 }
