@@ -70,6 +70,8 @@ typedef struct
 typedef struct
 {
     Text_context text;
+    int text_count;
+
     XftDraw *xft_draw;
     Colormap colormap;
     Visual *visual;

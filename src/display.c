@@ -463,18 +463,18 @@ Display_context init(Style conf)
         // printf("sx[%d] sy[%d]\n", dc.geometry.size_x, dc.geometry.size_y);
 
         /* Set text rendering context */
-        dc.text_rendering.text.x.rel = conf.text.x.rel;
-        dc.text_rendering.text.x.abs = conf.text.x.abs;
-        dc.text_rendering.text.y.rel = conf.text.y.rel;
-        dc.text_rendering.text.y.abs = conf.text.y.abs;
+        dc.text_rendering.text.x.rel = conf.text_list.ptext->x.rel;
+        dc.text_rendering.text.x.abs = conf.text_list.ptext->x.abs;
+        dc.text_rendering.text.y.rel = conf.text_list.ptext->y.rel;
+        dc.text_rendering.text.y.abs = conf.text_list.ptext->y.abs;
 
-        dc.text_rendering.text.align.x = conf.text.align.x;
-        dc.text_rendering.text.align.y = conf.text.align.y;
+        dc.text_rendering.text.align.x = conf.text_list.ptext->align.x;
+        dc.text_rendering.text.align.y = conf.text_list.ptext->align.y;
 
         /* Load and configure fonts and colors */
-        str_len = strlen(conf.text.string);
+        str_len = strlen(conf.text_list.ptext->string);
         dc.text_rendering.text.string = (char *)malloc(str_len + 1);
-        strcpy(dc.text_rendering.text.string, conf.text.string);
+        strcpy(dc.text_rendering.text.string, conf.text_list.ptext->string);
         dc.text_rendering.text.string[str_len] = '\0';
 
         dc.text_rendering.colormap =
@@ -482,18 +482,20 @@ Display_context init(Style conf)
         dc.text_rendering.visual = dc_depth.visuals;
 
         dc.text_rendering.text.font = XftFontOpenName(
-            dc.x.display, dc.x.screen_number, conf.text.font_name);
+            dc.x.display, dc.x.screen_number, conf.text_list.ptext->font_name);
         if (dc.text_rendering.text.font)
-            fprintf(stderr, "Info: Loaded font \"%s\"\n", conf.text.font_name);
+            fprintf(stderr, "Info: Loaded font \"%s\"\n",
+                    conf.text_list.ptext->font_name);
         else
             fprintf(stderr, "Error: Font \"%s\" is not loaded\n",
-                    conf.text.font_name);
+                    conf.text_list.ptext->font_name);
 
         if (!XftColorAllocName(dc.x.display, dc.text_rendering.visual,
-                               dc.text_rendering.colormap, conf.text.color,
+                               dc.text_rendering.colormap,
+                               conf.text_list.ptext->color,
                                &dc.text_rendering.text.font_color))
             fprintf(stderr, "Error: Color \"%s\" is not loaded\n",
-                    conf.text.color);
+                    conf.text_list.ptext->color);
 
         /* Calculate text sizes */
         XGlyphInfo text_info;

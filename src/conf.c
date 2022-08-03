@@ -246,13 +246,11 @@ static int config_setting_lookup_monitor(const config_setting_t *setting,
 }
 
 /* Lookup for text section */
-static int config_setting_lookup_text(const config_setting_t *setting,
-                                      const char *name, Text *text)
+static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
+                                           Text *text)
 {
-    config_setting_t *text_setting;
     config_setting_t *align_setting;
 
-    text_setting = config_setting_get_member(setting, name);
     if (text_setting != NULL)
     {
         const char *stringvalue;
@@ -287,7 +285,7 @@ static int config_setting_lookup_text(const config_setting_t *setting,
                 fprintf(stderr,
                         "Error: in configuration, line %d - "
                         "Invalid color specification.\n",
-                        config_setting_source_line(setting));
+                        config_setting_source_line(text_setting));
             }
         }
         else
@@ -308,6 +306,40 @@ static int config_setting_lookup_text(const config_setting_t *setting,
         return CONFIG_TRUE;
     }
     return CONFIG_FALSE;
+}
+
+static int config_setting_lookup_text_list(const config_setting_t *setting,
+                                           const char *name,
+                                           Text_list *ptext_list)
+{
+    config_setting_t *text_settings = config_setting_get_member(setting, name);
+    config_setting_t *text_setting;
+    int i;
+
+    if (text_settings != NULL)
+    {
+        if (!config_setting_is_list(text_settings))
+        {
+            fprintf(stderr, "Error: text is not a list\n");
+        }
+        ptext_list->len = config_setting_length(text_settings);
+        fprintf(stderr, "Elements in list is [%d]\n", ptext_list->len);
+        ptext_list->ptext = (Text *)malloc(sizeof(Text) * ptext_list->len);
+        for (i = 0; i < ptext_list->len; i++)
+        {
+            text_setting = config_setting_get_elem(text_settings, i);
+            config_setting_lookup_text_elem(text_setting,
+                                            &ptext_list->ptext[i]);
+        }
+        return CONFIG_TRUE;
+    }
+    else
+    {
+        fprintf(stderr, "Info: No text config found\n");
+        ptext_list->ptext = NULL;
+        ptext_list->len = 0;
+        return CONFIG_FALSE;
+    }
 }
 
 Style parse_style_config(FILE *file, const char *stylename, Style default_style)
@@ -350,7 +382,14 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
                                              &style.colorscheme.altoverflow);
             }
 
-            config_setting_lookup_text(xob_config, "text", &style.text);
+            config_setting_lookup_text_list(xob_config, "text",
+                                            &style.text_list);
+
+            int i;
+            for (i = 0; i < style.text_list.len; i++)
+            {
+                printf("[%2d] [%s]\n", i, style.text_list.ptext[i].font_name);
+            }
         }
         else
         {
@@ -369,6 +408,11 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
 
 void style_free(const Style *style)
 {
-    free(style->text.font_name);
-    free(style->text.string);
+    int i;
+    for (i = 0; i < style->text_list.len; i++)
+    {
+        free(style->text_list.ptext[i].font_name);
+        free(style->text_list.ptext[i].string);
+    }
+    free(style->text_list.ptext);
 }

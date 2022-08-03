@@ -85,6 +85,12 @@ typedef struct
 
 typedef struct
 {
+    Text *ptext;
+    int len;
+} Text_list;
+
+typedef struct
+{
     char monitor[LNAME_MONITOR];
     Dim x;
     Dim y;
@@ -96,7 +102,7 @@ typedef struct
     Orientation orientation;
     Overflow_mode overflow;
     Colorscheme colorscheme;
-    Text text;
+    Text_list text_list;
 } Style;
 
 /* clang-format off */
