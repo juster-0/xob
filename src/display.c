@@ -209,51 +209,54 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 
 static void compute_text_position(Display_context *pdc)
 {
-    /* Calculate text postion relative bar */
-    pdc->text_rendering.ptext->pos.x =
-        pdc->text_rendering.ptext->x.rel * pdc->geometry.size_x -
-        pdc->text_rendering.ptext->width * pdc->text_rendering.ptext->align.x +
-        pdc->text_rendering.ptext->x.abs;
-    pdc->text_rendering.ptext->pos.y =
-        pdc->text_rendering.ptext->y.rel * pdc->geometry.size_y +
-        pdc->text_rendering.ptext->height *
-            (1.0 - pdc->text_rendering.ptext->align.y) +
-        pdc->text_rendering.ptext->y.abs;
+    pdc->geometry.x.max = pdc->geometry.size_x;
+    pdc->geometry.y.max = pdc->geometry.size_y;
+    pdc->geometry.x.offset = 0;
+    pdc->geometry.y.offset = 0;
 
-    /* Calculate offset x*/
-    if (pdc->text_rendering.ptext->pos.x < 0)
+    int i;
+    for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
-        pdc->geometry.x.offset = -pdc->text_rendering.ptext->pos.x;
-        pdc->text_rendering.ptext->pos.x = 0;
+        /* Calculate coordinate x */
+        pdc->text_rendering.ptext[i].pos.x =
+            pdc->text_rendering.ptext[i].x.rel * pdc->geometry.size_x -
+            pdc->text_rendering.ptext[i].width *
+                pdc->text_rendering.ptext[i].align.x +
+            pdc->text_rendering.ptext[i].x.abs;
+
+        if (pdc->text_rendering.ptext[i].pos.x < pdc->geometry.x.offset)
+            pdc->geometry.x.offset = pdc->text_rendering.ptext[i].pos.x;
+
+        if (pdc->text_rendering.ptext[i].pos.x +
+                pdc->text_rendering.ptext[i].width >
+            pdc->geometry.x.max)
+        {
+            pdc->geometry.x.max = pdc->text_rendering.ptext[i].pos.x +
+                                  pdc->text_rendering.ptext[i].width;
+        }
+
+        /* Calculate coordinate y */
+        pdc->text_rendering.ptext[i].pos.y =
+            pdc->text_rendering.ptext[i].y.rel * pdc->geometry.size_y +
+            pdc->text_rendering.ptext[i].height *
+                (1.0 - pdc->text_rendering.ptext[i].align.y) +
+            pdc->text_rendering.ptext[i].y.abs;
+
+        if (pdc->text_rendering.ptext[i].pos.y < pdc->geometry.y.offset)
+            pdc->geometry.y.offset = pdc->text_rendering.ptext[i].pos.y;
+        if (pdc->text_rendering.ptext[i].pos.y +
+                pdc->text_rendering.ptext[i].height >
+            pdc->geometry.y.max)
+        {
+            pdc->geometry.y.max = pdc->text_rendering.ptext[i].pos.y +
+                                  pdc->text_rendering.ptext[i].y.abs;
+        }
     }
-    else
-        pdc->geometry.x.offset = 0;
 
-    /* Calculate offset y */
-    if (pdc->text_rendering.ptext->pos.y - pdc->text_rendering.ptext->height <
-        0)
-    {
-        pdc->geometry.y.offset = -(pdc->text_rendering.ptext->pos.y -
-                                   pdc->text_rendering.ptext->height);
-        pdc->text_rendering.ptext->pos.y = pdc->text_rendering.ptext->height;
-    }
-    else
-        pdc->geometry.y.offset = 0;
-
-    /* Calculate window width */
-    if (pdc->geometry.x.offset + pdc->geometry.size_x >
-        pdc->text_rendering.ptext->width + pdc->text_rendering.ptext->pos.x)
-        pdc->geometry.size_x = pdc->geometry.x.offset + pdc->geometry.size_x;
-    else
-        pdc->geometry.size_x =
-            pdc->text_rendering.ptext->width + pdc->text_rendering.ptext->pos.x;
-
-    /* Calculate window height */
-    if (pdc->text_rendering.ptext->pos.y >
-        pdc->geometry.y.offset + pdc->geometry.size_y)
-        pdc->geometry.size_y = pdc->text_rendering.ptext->pos.y;
-    else
-        pdc->geometry.size_y = pdc->geometry.y.offset + pdc->geometry.size_y;
+    if (pdc->geometry.x.offset < 0)
+        pdc->geometry.x.offset = -pdc->geometry.x.offset;
+    if (pdc->geometry.y.offset < 0)
+        pdc->geometry.y.offset = -pdc->geometry.y.offset;
 }
 
 /* Set combined positon */
@@ -340,8 +343,9 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
 
     XMoveResizeWindow(pdc->x.display, pdc->x.window,
                       topleft_x - pdc->geometry.x.offset,
-                      topleft_y - pdc->geometry.y.offset, pdc->geometry.size_x,
-                      pdc->geometry.size_y);
+                      topleft_y - pdc->geometry.y.offset,
+                      pdc->geometry.x.offset + pdc->geometry.x.max,
+                      pdc->geometry.y.offset + pdc->geometry.y.max);
 }
 
 /* Mobe the bar to monitor with focused window */
@@ -533,6 +537,9 @@ Display_context init(Style conf)
         dc.geometry.length_dynamic.rel = conf.length.rel;
         dc.geometry.length_dynamic.abs = conf.length.abs;
 
+        dc.geometry.x.offset = 0;
+        dc.geometry.y.offset = 0;
+
         dc.geometry.fat_layer =
             dc.geometry.padding + dc.geometry.border + dc.geometry.outline;
 
@@ -542,11 +549,13 @@ Display_context init(Style conf)
         init_text(&dc, &conf);
 
         /* Creation of the window */
-        dc.x.window = XCreateWindow(
-            dc.x.display, root, topleft_x - dc.geometry.x.offset,
-            topleft_y - dc.geometry.y.offset, dc.geometry.size_x,
-            dc.geometry.size_y, 0, dc_depth.depth, InputOutput,
-            dc_depth.visuals, window_attributes_flags, &window_attributes);
+        dc.x.window =
+            XCreateWindow(dc.x.display, root, topleft_x - dc.geometry.x.offset,
+                          topleft_y - dc.geometry.y.offset,
+                          dc.geometry.x.offset + dc.geometry.x.max,
+                          dc.geometry.y.offset + dc.geometry.y.max, 0,
+                          dc_depth.depth, InputOutput, dc_depth.visuals,
+                          window_attributes_flags, &window_attributes);
 
         dc.text_rendering.xft_draw =
             XftDrawCreate(dc.x.display, dc.x.window, dc.text_rendering.visual,
@@ -686,13 +695,22 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
     /* Draw text */
     if (pdc->text_rendering.text_count != 0)
     {
-        XftDrawStringUtf8(pdc->text_rendering.xft_draw,
-                          &pdc->text_rendering.ptext->font_color,
-                          pdc->text_rendering.ptext->font,
-                          pdc->text_rendering.ptext->pos.x,
-                          pdc->text_rendering.ptext->pos.y,
-                          (const FcChar8 *)pdc->text_rendering.ptext->string,
-                          strlen(pdc->text_rendering.ptext->string));
+        int i;
+        for (i = 0; i < pdc->text_rendering.text_count; i++)
+        {
+            printf("pos_x[%d] pos_y[%d] offset_x[%d] offset_y[%d]\n",
+                   pdc->text_rendering.ptext[i].pos.x,
+                   pdc->text_rendering.ptext[i].pos.y, pdc->geometry.x.offset,
+                   pdc->geometry.y.offset);
+            XftDrawStringUtf8(
+                pdc->text_rendering.xft_draw,
+                &pdc->text_rendering.ptext[i].font_color,
+                pdc->text_rendering.ptext[i].font,
+                pdc->text_rendering.ptext[i].pos.x + pdc->geometry.x.offset,
+                pdc->text_rendering.ptext[i].pos.y + pdc->geometry.y.offset,
+                (const FcChar8 *)pdc->text_rendering.ptext[i].string,
+                strlen(pdc->text_rendering.ptext[i].string));
+        }
     }
 
     XFlush(pdc->x.display);

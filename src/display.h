@@ -104,12 +104,14 @@ typedef struct
         double rel;
         int abs;
         int offset;
+        int max;
     } x;
     struct
     {
         double rel;
         int abs;
         int offset;
+        int max;
     } y;
     Bar_position bar_position;
     Orientation orientation;
