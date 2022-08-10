@@ -50,8 +50,8 @@ static void draw_empty(X_context x, Geometry_context g, Colors colors)
     /* Fill with transparent layer so other windows can update
      * content behind the bar (works only with compositors) */
     Color transparent = {.red = 0x0, .green = 0x0, .blue = 0x0, .alpha = 0x0};
-    fill_rectangle(x, transparent, 0, 0, g.size_x + g.x.offset,
-                   g.size_y + g.y.offset);
+    fill_rectangle(x, transparent, 0, 0, g.x.offset + g.x.max,
+                   g.y.offset + g.y.max);
 
     /* Outline */
     /* Left */
@@ -253,10 +253,8 @@ static void compute_text_position(Display_context *pdc)
         }
     }
 
-    if (pdc->geometry.x.offset < 0)
-        pdc->geometry.x.offset = -pdc->geometry.x.offset;
-    if (pdc->geometry.y.offset < 0)
-        pdc->geometry.y.offset = -pdc->geometry.y.offset;
+    pdc->geometry.x.offset = -pdc->geometry.x.offset;
+    pdc->geometry.y.offset = -pdc->geometry.y.offset;
 }
 
 /* Set combined positon */
