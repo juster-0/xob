@@ -17,10 +17,10 @@
 
 #include "display.h"
 
+#include <X11/Xatom.h>
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/Xatom.h>
 #include <X11/extensions/Xrandr.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -243,8 +243,11 @@ static void compute_text_position(Display_context *pdc)
                 (1.0 - pdc->text_rendering.ptext[i].align.y) +
             pdc->text_rendering.ptext[i].y.abs;
 
-        if (pdc->text_rendering.ptext[i].pos.y < pdc->geometry.y.offset)
-            pdc->geometry.y.offset = pdc->text_rendering.ptext[i].pos.y;
+        if (pdc->text_rendering.ptext[i].pos.y -
+                pdc->text_rendering.ptext[i].height <
+            pdc->geometry.y.offset)
+            pdc->geometry.y.offset = pdc->text_rendering.ptext[i].pos.y -
+                                     pdc->text_rendering.ptext[i].height;
         if (pdc->text_rendering.ptext[i].pos.y +
                 pdc->text_rendering.ptext[i].height >
             pdc->geometry.y.max)
