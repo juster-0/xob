@@ -20,6 +20,7 @@
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/Xatom.h>
 #include <X11/extensions/Xrandr.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -476,6 +477,7 @@ Display_context init(Style conf)
     XSetWindowAttributes window_attributes;
     static long window_attributes_flags =
         CWColormap | CWBorderPixel | CWOverrideRedirect;
+    Atom atom_net_wm_window_type, atom_net_wm_window_type_desktop;
 
     dc.x.display = XOpenDisplay(NULL);
     if (dc.x.display != NULL)
@@ -568,6 +570,16 @@ Display_context init(Style conf)
             XSetClassHint(dc.x.display, dc.x.window, class_hint);
             XFree(class_hint);
         }
+
+        /* Set _NET_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_DESKTOP to prevent
+         * rendering compositor borders */
+        atom_net_wm_window_type =
+            XInternAtom(dc.x.display, "_NET_WM_WINDOW_TYPE", False);
+        atom_net_wm_window_type_desktop =
+            XInternAtom(dc.x.display, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
+        XChangeProperty(dc.x.display, dc.x.window, atom_net_wm_window_type,
+                        XA_ATOM, 32, PropModeReplace,
+                        (unsigned char *)&atom_net_wm_window_type_desktop, 1);
 
         /* The new window is not mapped yet */
         dc.x.mapped = False;
@@ -696,10 +708,6 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         int i;
         for (i = 0; i < pdc->text_rendering.text_count; i++)
         {
-            printf("pos_x[%d] pos_y[%d] offset_x[%d] offset_y[%d]\n",
-                   pdc->text_rendering.ptext[i].pos.x,
-                   pdc->text_rendering.ptext[i].pos.y, pdc->geometry.x.offset,
-                   pdc->geometry.y.offset);
             XftDrawStringUtf8(
                 pdc->text_rendering.xft_draw,
                 &pdc->text_rendering.ptext[i].font_color,
