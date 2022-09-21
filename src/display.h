@@ -19,9 +19,11 @@
 #define DISPLAY_H
 
 #include "conf.h"
+#include "parser.h"
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>
+#include <stdbool.h>
 
 #define STATE_ALT (0x1)
 #define STATE_OVERFLOW (0x1 << 1)
@@ -55,6 +57,8 @@ typedef struct
     XftColor font_color;
     XftFont *font;
     char *string;
+    bool is_dynamic;
+    Dynamic_string *pdyn_str;
     struct
     {
         int x;
@@ -71,6 +75,7 @@ typedef struct
 {
     Text_context *ptext;
     int text_count;
+    bool have_dynamic_strings;
 
     XftDraw *xft_draw;
     Colormap colormap;

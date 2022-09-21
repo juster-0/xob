@@ -16,12 +16,14 @@
  */
 
 #include "display.h"
+#include "parser.h"
 
 #include <X11/Xatom.h>
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrandr.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -218,6 +220,9 @@ static void compute_text_position(Display_context *pdc)
     int i;
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
+        if (pdc->text_rendering.ptext[i].is_dynamic)
+            continue;
+
         /* Calculate coordinate x */
         pdc->text_rendering.ptext[i].pos.x =
             pdc->text_rendering.ptext[i].x.rel * pdc->geometry.size_x -
@@ -395,6 +400,7 @@ static void init_text(Display_context *pdc, const Style *pconf)
     int i, str_len;
     Depth dc_depth;
     XGlyphInfo text_info;
+    Dynamic_string dyn_str;
 
     pdc->text_rendering.text_count = pconf->text_list.len;
 
@@ -415,6 +421,7 @@ static void init_text(Display_context *pdc, const Style *pconf)
         dc_depth.visuals, AllocNone);
     pdc->text_rendering.visual = dc_depth.visuals;
 
+    pdc->text_rendering.have_dynamic_strings = false;
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
         /* Copy text position data to Text_context structure */
@@ -429,13 +436,6 @@ static void init_text(Display_context *pdc, const Style *pconf)
             pconf->text_list.ptext[i].align.y;
 
         /*** Load and configure fonts and colors ***/
-
-        /* Copy string to context */
-        str_len = strlen(pconf->text_list.ptext[i].string);
-        pdc->text_rendering.ptext[i].string = (char *)malloc(str_len + 1);
-        strcpy(pdc->text_rendering.ptext[i].string,
-               pconf->text_list.ptext[i].string);
-        pdc->text_rendering.ptext[i].string[str_len] = '\0';
 
         /* Load font */
         pdc->text_rendering.ptext[i].font =
@@ -456,13 +456,39 @@ static void init_text(Display_context *pdc, const Style *pconf)
             fprintf(stderr, "Error: Color \"%s\" is not loaded\n",
                     pconf->text_list.ptext[i].color);
 
-        /* Calculate text sizes */
-        XftTextExtentsUtf8(pdc->x.display, pdc->text_rendering.ptext[i].font,
-                           (const FcChar8 *)pdc->text_rendering.ptext[i].string,
-                           str_len, &text_info);
-        pdc->text_rendering.ptext[i].width = text_info.width;
-        // dc.text_rendering.ptext->height = text_info.height;
-        pdc->text_rendering.ptext[i].height = text_info.y;
+        /* Copy string to context */
+        dyn_str = generate_dyn_str(pconf->text_list.ptext[i].string);
+        if (dyn_str.inserts == 0)
+        {
+            fprintf(stderr, "Info: loading static string [%s].\n",
+                    pconf->text_list.ptext[i].string);
+            free_dyn_str(&dyn_str);
+            str_len = strlen(pconf->text_list.ptext[i].string);
+            pdc->text_rendering.ptext[i].string = (char *)malloc(str_len + 1);
+            strcpy(pdc->text_rendering.ptext[i].string,
+                   pconf->text_list.ptext[i].string);
+            pdc->text_rendering.ptext[i].string[str_len] = '\0';
+            pdc->text_rendering.ptext[i].is_dynamic = false;
+
+            /* Calculate text sizes */
+            XftTextExtentsUtf8(
+                pdc->x.display, pdc->text_rendering.ptext[i].font,
+                (const FcChar8 *)pdc->text_rendering.ptext[i].string, str_len,
+                &text_info);
+            pdc->text_rendering.ptext[i].width = text_info.width;
+            // dc.text_rendering.ptext->height = text_info.height;
+            pdc->text_rendering.ptext[i].height = text_info.y;
+        }
+        else
+        {
+            fprintf(stderr, "Info: loading dynamic string [%s].\n",
+                    pconf->text_list.ptext[i].string);
+            pdc->text_rendering.ptext[i].pdyn_str =
+                (Dynamic_string *)malloc(sizeof(Dynamic_string));
+            *(pdc->text_rendering.ptext[i].pdyn_str) = dyn_str;
+            pdc->text_rendering.ptext[i].is_dynamic = true;
+            pdc->text_rendering.have_dynamic_strings = true;
+        }
     }
     compute_text_position(pdc);
 }
@@ -600,7 +626,15 @@ void display_context_destroy(Display_context *pdc)
     int i;
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
-        free(pdc->text_rendering.ptext[i].string);
+        if (pdc->text_rendering.ptext[i].is_dynamic)
+        {
+            free_dyn_str(pdc->text_rendering.ptext[i].pdyn_str);
+            free(pdc->text_rendering.ptext[i].pdyn_str);
+        }
+        else
+        {
+            free(pdc->text_rendering.ptext[i].string);
+        }
         XftColorFree(pdc->x.display, pdc->text_rendering.visual,
                      pdc->text_rendering.colormap,
                      &pdc->text_rendering.ptext[i].font_color);

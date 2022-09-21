@@ -2,7 +2,7 @@ PROGRAM = xob
 MANPAGE = doc/xob.1
 SYSCONF = styles.cfg
 LIBS    = x11 libconfig xrandr xft
-SOURCES = src/conf.c src/display.c src/main.c
+SOURCES = src/conf.c src/display.c src/main.c src/parser.c
 
 # Feature: alpha channel (transparency)
 enable_alpha ?= yes
@@ -59,5 +59,6 @@ src/display.o: src/display.h src/conf.h
 src/main.o: src/main.h src/display.h src/conf.h
 src/xlib.o: src/display.h
 src/xrender.o: src/display.h
+src/parser.o: src/parser.h
 
 .PHONY: all install uninstall clean
