@@ -135,7 +135,7 @@ typedef struct
 
 Display_context init(Style conf);
 void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
-          Show_mode show_mode);
+          Show_mode show_mode, const char **words_list);
 void hide(Display_context *pdc);
 void display_context_destroy(Display_context *pdc);
 

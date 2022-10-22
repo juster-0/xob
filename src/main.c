@@ -16,10 +16,10 @@
  */
 
 #define _XOPEN_SOURCE 500
-
 #include "main.h"
 #include "conf.h"
 #include "display.h"
+#include "parser.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -181,6 +181,8 @@ int main(int argc, char *argv[])
 
     style_free(&style);
 
+    char *words_list[MAX_DYN_STR_SIZE + 1];     // TODO dymamic list length
+
     if (display_context.x.display == NULL)
     {
         fprintf(stderr, "Error: Cannot open display\n");
@@ -213,11 +215,12 @@ int main(int argc, char *argv[])
                 break;
             default:
                 /* Update display using new input value */
-                input_value = parse_input();
+                input_value = parse_input(words_list, MAX_DYN_STR_SIZE + 1);
+                // print_loge("DEBUG_TEST: test %s number [%d]\n", "world", 123);
                 if (input_value.valid)
                 {
                     show(&display_context, input_value.value, cap,
-                         style.overflow, input_value.show_mode);
+                         style.overflow, input_value.show_mode, words_list);
                     printf("Update: %d/%d %s\n", input_value.value, cap,
                            (input_value.show_mode == ALTERNATIVE) ? "[ALT]"
                                                                   : "");
@@ -239,20 +242,49 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-Input_value parse_input(void)
+Input_value parse_input(char ** words_list, int size)
 {
     Input_value input_value;
     char altflag;
+    char input_string[200];     // TODO dynamic length
+    char *inp_word;
+    int word_index;
 
     input_value.valid = false;
 
-    if (scanf("%d", &(input_value.value)) > 0)
+    /* Get input */
+    fgets(input_string, 200, stdin);
+    input_string[strlen(input_string) - 1] = '\0';
+
+    /* Split line by tokens */
+    if (strlen(input_string) > 0)
     {
+        inp_word = parse_splitted(input_string);
+        words_list[0] = inp_word;
+    }
+    else
+    {
+        return input_value;
+    }
+
+    for (word_index = 1; word_index < size - 1;
+         word_index++)
+    {
+        words_list[word_index] = parse_splitted(NULL);
+        if (words_list[word_index] == NULL)
+            break;
+    }
+
+    // if (scanf("%d", &(input_value.value)) > 0)
+    if (sscanf(words_list[0], "%d", &(input_value.value)) > 0)
+    {
+        // TODO FIXME checking for the "alternative mode"
+        input_value.show_mode = NORMAL;
         /* Checking for the "alternative mode" flag : '!' */
-        if (scanf("%c", &altflag) > 0 && altflag == '!')
-            input_value.show_mode = ALTERNATIVE;
-        else
-            input_value.show_mode = NORMAL;
+        // if (scanf("%c", &altflag) > 0 && altflag == '!')
+        //     input_value.show_mode = ALTERNATIVE;
+        // else
+        //     input_value.show_mode = NORMAL;
 
         input_value.valid = true;
     }

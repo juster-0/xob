@@ -212,16 +212,31 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 
 static void compute_text_position(Display_context *pdc)
 {
+    fprintf(stderr, "DEBUG: compute_text_position()\n");
+    // print_loge("DEBUG_TEST: compute_text_position()%d\n", 0);
     pdc->geometry.x.max = pdc->geometry.size_x;
     pdc->geometry.y.max = pdc->geometry.size_y;
     pdc->geometry.x.offset = 0;
     pdc->geometry.y.offset = 0;
+    XGlyphInfo text_info;
+    int str_len;
 
     int i;
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
-        if (pdc->text_rendering.ptext[i].is_dynamic)
+        if (pdc->text_rendering.ptext[i].string == NULL)
             continue;
+        if (pdc->text_rendering.ptext[i].is_dynamic)
+        {
+            str_len = strlen(pdc->text_rendering.ptext[i].string);
+            XftTextExtentsUtf8(
+                    pdc->x.display, pdc->text_rendering.ptext[i].font,
+                    (const FcChar8 *)pdc->text_rendering.ptext[i].string,
+                    str_len, &text_info);
+            pdc->text_rendering.ptext[i].width = text_info.width;
+            // dc.text_rendering.ptext->height = text_info.height;
+            pdc->text_rendering.ptext[i].height = text_info.y;
+        }
 
         /* Calculate coordinate x */
         pdc->text_rendering.ptext[i].pos.x =
@@ -488,6 +503,7 @@ static void init_text(Display_context *pdc, const Style *pconf)
             *(pdc->text_rendering.ptext[i].pdyn_str) = dyn_str;
             pdc->text_rendering.ptext[i].is_dynamic = true;
             pdc->text_rendering.have_dynamic_strings = true;
+            pdc->text_rendering.ptext[i].string = NULL;
         }
     }
     compute_text_position(pdc);
@@ -648,7 +664,7 @@ void display_context_destroy(Display_context *pdc)
 
 /* PUBLIC Show a bar filled at value/cap in normal or alternative mode */
 void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
-          Show_mode show_mode)
+          Show_mode show_mode, const char **words_list)
 {
     Colors colors;
     Colors colors_overflow_proportional;
@@ -656,6 +672,70 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
     static int_fast8_t last_state = 0x0;
 
     int old_length = pdc->geometry.length;
+
+    /* TODO move to function */
+    if (pdc->text_rendering.have_dynamic_strings)
+    {
+        int i, i2;
+        int words_list_len = 0;
+        int words_len = 0;
+        int dyn_str_len = 0;
+        int word_max_len;
+        /* Count length of words_list */
+        while (words_list[words_list_len] != NULL)
+        {
+            words_len += strlen(words_list[words_list_len]);
+            words_list_len++;
+        }
+        fprintf(stderr, "DEBUG: words_list_len is %d\n", words_list_len);
+        // print_loge("DEBUG: words_list_len is %d\n", words_list_len);
+        fprintf(stderr, "DEBUG: words_len is %d\n", words_len);
+        // print_loge("DEBUG: words_len is %d\n", words_len);
+
+        for (i = 0; i < pdc->text_rendering.text_count; i++)
+        {
+            dyn_str_len = 0;
+            if (pdc->text_rendering.ptext[i].is_dynamic)
+            {
+                /* Count length of dynamic_str */
+                for (i2 = 0;
+                     i2 < pdc->text_rendering.ptext[i].pdyn_str->count_strings;
+                     i2++)
+                {
+                    dyn_str_len += strlen(
+                        pdc->text_rendering.ptext[i].pdyn_str->strings[i2]);
+                }
+                word_max_len = words_len + dyn_str_len + 1;
+                pdc->text_rendering.ptext[i].string =
+                    (char *)malloc(sizeof(char) * word_max_len);
+                pdc->text_rendering.ptext[i].string[0] = '\0';
+
+                /* Fill dynamic string */
+                for (i2 = 0;
+                     i2 <
+                     pdc->text_rendering.ptext[i].pdyn_str->count_strings - 1;
+                     i2++)
+                {
+                    strcat(pdc->text_rendering.ptext[i].string,
+                           pdc->text_rendering.ptext[i].pdyn_str->strings[i2]);
+                    strcat(pdc->text_rendering.ptext[i].string,
+                           words_list[pdc->text_rendering.ptext[i]
+                                          .pdyn_str->indexes[i2]]);
+                }
+                strcat(pdc->text_rendering.ptext[i].string,
+                       pdc->text_rendering.ptext[i]
+                           .pdyn_str->strings[pdc->text_rendering.ptext[i]
+                                                  .pdyn_str->count_strings -
+                                              1]);
+
+                fprintf(stderr, "DEBUG: dyn_str is [%s]\n",
+                        pdc->text_rendering.ptext[i].string);
+                // print_loge("DEBUG: dyn_str is [%s]\n",
+                //         pdc->text_rendering.ptext[i].string);
+                // free(pdc->text_rendering.ptext[i].string);
+            }
+        }
+    }
 
     /* Move the bar for relative positions */
     switch (pdc->geometry.bar_position)
@@ -745,6 +825,9 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         int i;
         for (i = 0; i < pdc->text_rendering.text_count; i++)
         {
+            fprintf(stderr, "DEBUG: draw_text [%d] [%s]\n", i, pdc->text_rendering.ptext[i].string);
+            // print_loge("DEBUG: draw_text [%d] [%s]\n",
+            //         i, pdc->text_rendering.ptext[i].string);
             XftDrawStringUtf8(
                 pdc->text_rendering.xft_draw,
                 &pdc->text_rendering.ptext[i].font_color,
@@ -753,6 +836,14 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
                 pdc->text_rendering.ptext[i].pos.y + pdc->geometry.y.offset,
                 (const FcChar8 *)pdc->text_rendering.ptext[i].string,
                 strlen(pdc->text_rendering.ptext[i].string));
+        }
+
+        for (i = 0; i < pdc->text_rendering.text_count; i++)
+        {
+            if (pdc->text_rendering.ptext[i].is_dynamic)
+            {
+                free(pdc->text_rendering.ptext[i].string);
+            }
         }
     }
 

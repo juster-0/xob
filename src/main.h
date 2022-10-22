@@ -30,6 +30,5 @@ typedef struct
     Show_mode show_mode;
 } Input_value;
 
-Input_value parse_input(void);
-
+Input_value parse_input(char ** words_list, int size);
 #endif

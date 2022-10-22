@@ -18,6 +18,7 @@
 #include "parser.h"
 
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,4 +135,89 @@ void free_dyn_str(Dynamic_string *pdyn_str)
     for (i = 0; i < pdyn_str->count_strings; i++)
         free(pdyn_str->strings[i]);
     return;
+}
+
+char *parse_splitted(char *str)
+{
+    static char *input;
+    char *lead;
+    _Bool in_block = 0;
+    uint8_t block_index;
+    char *p_block_index;
+    char *block_chars = "\"'";
+
+    if (str != NULL)
+    {
+        input = str;
+        lead = input;
+    }
+    else
+    {
+        if (input[0] == '\0')
+            return NULL;
+        lead = input;
+    }
+    // getchar();
+    // printf("[%s]\n", lead);
+    printf("block_chars[%p]\n", block_chars);
+    while (input[0] != '\0')
+    {
+        // printf("in_block[%d]\n", in_block);
+        if (in_block)
+        {
+            // printf("input is [%s]\n", input);
+            // printf("in_block block_index[%d]\n", block_index);
+            p_block_index = strchr(input, block_chars[block_index]);
+            // printf("p_block_index [%s]\n", p_block_index);
+            in_block = 0;
+            if (p_block_index)
+            {
+                // printf("found end\n");
+                // printf("p_block_index[block_index] is [%c]\n",
+                // block_chars[block_index]); printf("p_block_index[%p]\n",
+                // p_block_index);
+                input = p_block_index + 1;
+                // printf("input [%s]\n", input);
+                input[-1] = '\0';
+                // in_block = 0;
+                break;
+                // continue;
+            }
+            // else
+            // {
+            //     in_block = 0;
+            // }
+        }
+        else if ((p_block_index = strchr(block_chars, input[0])) != NULL)
+        {
+            // printf("input[0] is [%c]\n", input[0]);
+            // printf("p_block_index[%p]\n", p_block_index);
+            block_index = p_block_index - block_chars;
+            // printf("block_index[%d]\n", block_index);
+            printf("lead [%s]\n", lead);
+            in_block = 1;
+            lead++;
+            input++;
+            continue;
+        }
+
+        if (strchr(" ", input[0]) != NULL)
+        {
+            if (input - lead == 0)
+            {
+                lead++;
+                input++;
+                continue;
+            }
+
+            if (input[0] != '\0')
+            {
+                input[0] = '\0';
+                input++;
+            }
+            break;
+        }
+        input++;
+    }
+    return lead;
 }

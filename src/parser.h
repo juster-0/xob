@@ -30,10 +30,25 @@ typedef struct
     int count_strings;
 } Dynamic_string;
 
+typedef struct
+{
+    char *strings[MAX_DYN_STR_SIZE];
+    int count;
+} Dynamic_list;
+
 /* Generate dynamic string structure by usual string */
 Dynamic_string generate_dyn_str(const char *str);
 
 /* free all allocated memory by generate_dyn_str function */
 void free_dyn_str(Dynamic_string *pdyn_str);
+
+void fill_dyn_str(char *str, Dynamic_string *pdyn_str, const char **word_list);
+
+/* Split string to blocks that separates by "' chars.
+ * if str is a pointer to string than the function returns pointer to the first
+ * block in the string, if str is NULL pointer then the function returns
+ * pointer to the next block in previous string or returns NULL pointer if
+ * no block found */
+char *parse_splitted(char *str);
 
 #endif
