@@ -16,6 +16,7 @@
  */
 
 #include "display.h"
+#include "log.h"
 #include "parser.h"
 
 #include <X11/Xatom.h>
@@ -212,8 +213,7 @@ void compute_geometry(Display_context *pdc, int *topleft_x, int *topleft_y)
 
 static void compute_text_position(Display_context *pdc)
 {
-    fprintf(stderr, "DEBUG: compute_text_position()\n");
-    // print_loge("DEBUG_TEST: compute_text_position()%d\n", 0);
+    // print_loge("DEBUG: compute_text_position()\n");
     pdc->geometry.x.max = pdc->geometry.size_x;
     pdc->geometry.y.max = pdc->geometry.size_y;
     pdc->geometry.x.offset = 0;
@@ -295,10 +295,8 @@ static void compute_dynamic_strings(Display_context *pdc, char **words_list)
         words_len += strlen(words_list[words_list_len]);
         words_list_len++;
     }
-    fprintf(stderr, "DEBUG: words_list_len is %d\n", words_list_len);
-    // print_loge("DEBUG: words_list_len is %d\n", words_list_len);
-    fprintf(stderr, "DEBUG: words_len is %d\n", words_len);
-    // print_loge("DEBUG: words_len is %d\n", words_len);
+    print_loge("DEBUG: words_list_len is %d\n", words_list_len);
+    print_loge("DEBUG: words_len is %d\n", words_len);
 
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
@@ -311,8 +309,8 @@ static void compute_dynamic_strings(Display_context *pdc, char **words_list)
                 (char *)malloc(sizeof(char) * word_max_len);
             fill_dyn_str(pdc->text_rendering.ptext[i].string,
                          pdc->text_rendering.ptext[i].pdyn_str, words_list);
-            fprintf(stderr, "DEBUG: dyn_str is [%s]\n",
-                    pdc->text_rendering.ptext[i].string);
+            print_loge("DEBUG: dyn_str is [%s]\n",
+                       pdc->text_rendering.ptext[i].string);
         }
     }
 }
@@ -801,10 +799,8 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         int i;
         for (i = 0; i < pdc->text_rendering.text_count; i++)
         {
-            fprintf(stderr, "DEBUG: draw_text [%d] [%s]\n", i,
-                    pdc->text_rendering.ptext[i].string);
-            // print_loge("DEBUG: draw_text [%d] [%s]\n",
-            //         i, pdc->text_rendering.ptext[i].string);
+            print_loge("DEBUG: draw_text [%d] [%s]\n", i,
+                       pdc->text_rendering.ptext[i].string);
             XftDrawStringUtf8(
                 pdc->text_rendering.xft_draw,
                 &pdc->text_rendering.ptext[i].font_color,

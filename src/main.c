@@ -19,6 +19,7 @@
 #include "main.h"
 #include "conf.h"
 #include "display.h"
+#include "log.h"
 #include "parser.h"
 #include <limits.h>
 #include <stdio.h>
@@ -216,8 +217,6 @@ int main(int argc, char *argv[])
             default:
                 /* Update display using new input value */
                 input_value = parse_input(words_list, MAX_DYN_STR_SIZE + 1);
-                // print_loge("DEBUG_TEST: test %s number [%d]\n", "world",
-                // 123);
                 if (input_value.valid)
                 {
                     show(&display_context, input_value.value, cap,

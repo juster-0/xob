@@ -182,9 +182,6 @@ char *parse_splitted(char *str)
             return NULL;
         lead = input;
     }
-    // getchar();
-    // printf("[%s]\n", lead);
-    printf("block_chars[%p]\n", block_chars);
     while (input[0] != '\0')
     {
         // printf("in_block[%d]\n", in_block);
@@ -219,7 +216,7 @@ char *parse_splitted(char *str)
             // printf("p_block_index[%p]\n", p_block_index);
             block_index = p_block_index - block_chars;
             // printf("block_index[%d]\n", block_index);
-            printf("lead [%s]\n", lead);
+            // printf("lead [%s]\n", lead);
             in_block = 1;
             lead++;
             input++;

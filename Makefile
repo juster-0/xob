@@ -30,6 +30,9 @@ man1dir         ?= $(mandir)/man1
 
 all: $(PROGRAM)
 
+debug: CFLAGS += -DDEBUG -g
+debug: $(PROGRAM)
+
 $(PROGRAM): $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
 
