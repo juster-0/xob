@@ -126,6 +126,15 @@ Dynamic_string generate_dyn_str(const char *str)
         break;
     }
 
+    int dyn_str_len = 0;
+    int i;
+    /* Count length of dynamic_str */
+    for (i = 0; i < dyn_str.count_strings; i++)
+    {
+        dyn_str_len += strlen(dyn_str.strings[i]);
+    }
+    dyn_str.len = dyn_str_len;
+
     return dyn_str;
 }
 
@@ -135,6 +144,22 @@ void free_dyn_str(Dynamic_string *pdyn_str)
     for (i = 0; i < pdyn_str->count_strings; i++)
         free(pdyn_str->strings[i]);
     return;
+}
+
+int strlen_dyn_str(const Dynamic_string *pdyn_str) { return pdyn_str->len; }
+
+void fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list)
+{
+    int i;
+    str[0] = '\0';
+
+    /* Fill dynamic string */
+    for (i = 0; i < pdyn_str->count_strings - 1; i++)
+    {
+        strcat(str, pdyn_str->strings[i]);
+        strcat(str, words_list[pdyn_str->indexes[i]]);
+    }
+    strcat(str, pdyn_str->strings[pdyn_str->count_strings - 1]);
 }
 
 char *parse_splitted(char *str)

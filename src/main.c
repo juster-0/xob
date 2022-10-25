@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 
     style_free(&style);
 
-    char *words_list[MAX_DYN_STR_SIZE + 1];     // TODO dymamic list length
+    char *words_list[MAX_DYN_STR_SIZE + 1]; // TODO dymamic list length
 
     if (display_context.x.display == NULL)
     {
@@ -216,7 +216,8 @@ int main(int argc, char *argv[])
             default:
                 /* Update display using new input value */
                 input_value = parse_input(words_list, MAX_DYN_STR_SIZE + 1);
-                // print_loge("DEBUG_TEST: test %s number [%d]\n", "world", 123);
+                // print_loge("DEBUG_TEST: test %s number [%d]\n", "world",
+                // 123);
                 if (input_value.valid)
                 {
                     show(&display_context, input_value.value, cap,
@@ -232,6 +233,7 @@ int main(int argc, char *argv[])
                     /* Stop after unexpected input */
                     listening = false;
                 }
+                free_input_value(&input_value);
                 break;
             }
         }
@@ -242,24 +244,27 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-Input_value parse_input(char ** words_list, int size)
+Input_value parse_input(char **words_list, int size)
 {
     Input_value input_value;
     char altflag;
-    char input_string[200];     // TODO dynamic length
+
+    // char input_string[200];     // TODO dynamic length
+    // TODO change malloc to something more simple
+    input_value.input_string = (char *)malloc(sizeof(char) * 200);
     char *inp_word;
     int word_index;
 
     input_value.valid = false;
 
     /* Get input */
-    fgets(input_string, 200, stdin);
-    input_string[strlen(input_string) - 1] = '\0';
+    fgets(input_value.input_string, 200, stdin);
+    input_value.input_string[strlen(input_value.input_string) - 1] = '\0';
 
     /* Split line by tokens */
-    if (strlen(input_string) > 0)
+    if (strlen(input_value.input_string) > 0)
     {
-        inp_word = parse_splitted(input_string);
+        inp_word = parse_splitted(input_value.input_string);
         words_list[0] = inp_word;
     }
     else
@@ -267,8 +272,7 @@ Input_value parse_input(char ** words_list, int size)
         return input_value;
     }
 
-    for (word_index = 1; word_index < size - 1;
-         word_index++)
+    for (word_index = 1; word_index < size - 1; word_index++)
     {
         words_list[word_index] = parse_splitted(NULL);
         if (words_list[word_index] == NULL)
@@ -290,4 +294,9 @@ Input_value parse_input(char ** words_list, int size)
     }
 
     return input_value;
+}
+
+void free_input_value(Input_value *p_input_value)
+{
+    free(p_input_value->input_string);
 }

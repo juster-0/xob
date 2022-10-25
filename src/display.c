@@ -230,9 +230,9 @@ static void compute_text_position(Display_context *pdc)
         {
             str_len = strlen(pdc->text_rendering.ptext[i].string);
             XftTextExtentsUtf8(
-                    pdc->x.display, pdc->text_rendering.ptext[i].font,
-                    (const FcChar8 *)pdc->text_rendering.ptext[i].string,
-                    str_len, &text_info);
+                pdc->x.display, pdc->text_rendering.ptext[i].font,
+                (const FcChar8 *)pdc->text_rendering.ptext[i].string, str_len,
+                &text_info);
             pdc->text_rendering.ptext[i].width = text_info.width;
             // dc.text_rendering.ptext->height = text_info.height;
             pdc->text_rendering.ptext[i].height = text_info.y;
@@ -279,6 +279,42 @@ static void compute_text_position(Display_context *pdc)
 
     pdc->geometry.x.offset = -pdc->geometry.x.offset;
     pdc->geometry.y.offset = -pdc->geometry.y.offset;
+}
+
+/* Fill dynamic strings in pdc.text_rendering.ptext with words_list */
+static void compute_dynamic_strings(Display_context *pdc, char **words_list)
+{
+    int i;
+    int words_list_len = 0;
+    int words_len = 0;
+    int word_max_len;
+
+    /* Count length of words_list */
+    while (words_list[words_list_len] != NULL)
+    {
+        words_len += strlen(words_list[words_list_len]);
+        words_list_len++;
+    }
+    fprintf(stderr, "DEBUG: words_list_len is %d\n", words_list_len);
+    // print_loge("DEBUG: words_list_len is %d\n", words_list_len);
+    fprintf(stderr, "DEBUG: words_len is %d\n", words_len);
+    // print_loge("DEBUG: words_len is %d\n", words_len);
+
+    for (i = 0; i < pdc->text_rendering.text_count; i++)
+    {
+        if (pdc->text_rendering.ptext[i].is_dynamic)
+        {
+            word_max_len =
+                words_len +
+                strlen_dyn_str(pdc->text_rendering.ptext[i].pdyn_str) + 1;
+            pdc->text_rendering.ptext[i].string =
+                (char *)malloc(sizeof(char) * word_max_len);
+            fill_dyn_str(pdc->text_rendering.ptext[i].string,
+                         pdc->text_rendering.ptext[i].pdyn_str, words_list);
+            fprintf(stderr, "DEBUG: dyn_str is [%s]\n",
+                    pdc->text_rendering.ptext[i].string);
+        }
+    }
 }
 
 /* Set combined positon */
@@ -664,7 +700,7 @@ void display_context_destroy(Display_context *pdc)
 
 /* PUBLIC Show a bar filled at value/cap in normal or alternative mode */
 void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
-          Show_mode show_mode, const char **words_list)
+          Show_mode show_mode, char **words_list)
 {
     Colors colors;
     Colors colors_overflow_proportional;
@@ -673,69 +709,9 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
 
     int old_length = pdc->geometry.length;
 
-    /* TODO move to function */
+    /* Compute dynamic strings if exists */
     if (pdc->text_rendering.have_dynamic_strings)
-    {
-        int i, i2;
-        int words_list_len = 0;
-        int words_len = 0;
-        int dyn_str_len = 0;
-        int word_max_len;
-        /* Count length of words_list */
-        while (words_list[words_list_len] != NULL)
-        {
-            words_len += strlen(words_list[words_list_len]);
-            words_list_len++;
-        }
-        fprintf(stderr, "DEBUG: words_list_len is %d\n", words_list_len);
-        // print_loge("DEBUG: words_list_len is %d\n", words_list_len);
-        fprintf(stderr, "DEBUG: words_len is %d\n", words_len);
-        // print_loge("DEBUG: words_len is %d\n", words_len);
-
-        for (i = 0; i < pdc->text_rendering.text_count; i++)
-        {
-            dyn_str_len = 0;
-            if (pdc->text_rendering.ptext[i].is_dynamic)
-            {
-                /* Count length of dynamic_str */
-                for (i2 = 0;
-                     i2 < pdc->text_rendering.ptext[i].pdyn_str->count_strings;
-                     i2++)
-                {
-                    dyn_str_len += strlen(
-                        pdc->text_rendering.ptext[i].pdyn_str->strings[i2]);
-                }
-                word_max_len = words_len + dyn_str_len + 1;
-                pdc->text_rendering.ptext[i].string =
-                    (char *)malloc(sizeof(char) * word_max_len);
-                pdc->text_rendering.ptext[i].string[0] = '\0';
-
-                /* Fill dynamic string */
-                for (i2 = 0;
-                     i2 <
-                     pdc->text_rendering.ptext[i].pdyn_str->count_strings - 1;
-                     i2++)
-                {
-                    strcat(pdc->text_rendering.ptext[i].string,
-                           pdc->text_rendering.ptext[i].pdyn_str->strings[i2]);
-                    strcat(pdc->text_rendering.ptext[i].string,
-                           words_list[pdc->text_rendering.ptext[i]
-                                          .pdyn_str->indexes[i2]]);
-                }
-                strcat(pdc->text_rendering.ptext[i].string,
-                       pdc->text_rendering.ptext[i]
-                           .pdyn_str->strings[pdc->text_rendering.ptext[i]
-                                                  .pdyn_str->count_strings -
-                                              1]);
-
-                fprintf(stderr, "DEBUG: dyn_str is [%s]\n",
-                        pdc->text_rendering.ptext[i].string);
-                // print_loge("DEBUG: dyn_str is [%s]\n",
-                //         pdc->text_rendering.ptext[i].string);
-                // free(pdc->text_rendering.ptext[i].string);
-            }
-        }
-    }
+        compute_dynamic_strings(pdc, words_list);
 
     /* Move the bar for relative positions */
     switch (pdc->geometry.bar_position)
@@ -825,7 +801,8 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         int i;
         for (i = 0; i < pdc->text_rendering.text_count; i++)
         {
-            fprintf(stderr, "DEBUG: draw_text [%d] [%s]\n", i, pdc->text_rendering.ptext[i].string);
+            fprintf(stderr, "DEBUG: draw_text [%d] [%s]\n", i,
+                    pdc->text_rendering.ptext[i].string);
             // print_loge("DEBUG: draw_text [%d] [%s]\n",
             //         i, pdc->text_rendering.ptext[i].string);
             XftDrawStringUtf8(

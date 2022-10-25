@@ -28,6 +28,7 @@ typedef struct
     char *strings[MAX_DYN_STR_SIZE];
     int inserts;
     int count_strings;
+    int len;
 } Dynamic_string;
 
 typedef struct
@@ -42,7 +43,14 @@ Dynamic_string generate_dyn_str(const char *str);
 /* free all allocated memory by generate_dyn_str function */
 void free_dyn_str(Dynamic_string *pdyn_str);
 
-void fill_dyn_str(char *str, Dynamic_string *pdyn_str, const char **word_list);
+/* Get len of provided dynamic string */
+int strlen_dyn_str(const Dynamic_string *pdyn_str);
+
+/* Fill str buffer with combined pdyn_str and words_list.
+ * Every {num} will be changed with words_list[num] string.
+ * words_list have to have enough elements to represent all numbers in the
+ * dynamic string. */
+void fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list);
 
 /* Split string to blocks that separates by "' chars.
  * if str is a pointer to string than the function returns pointer to the first
