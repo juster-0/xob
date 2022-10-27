@@ -50,7 +50,8 @@ int strlen_dyn_str(const Dynamic_string *pdyn_str);
  * Every {num} will be changed with words_list[num] string.
  * words_list have to have enough elements to represent all numbers in the
  * dynamic string. */
-void fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list);
+int fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list,
+                 int words_list_len);
 
 /* Split string to blocks that separates by "' chars.
  * if str is a pointer to string than the function returns pointer to the first

@@ -148,18 +148,24 @@ void free_dyn_str(Dynamic_string *pdyn_str)
 
 int strlen_dyn_str(const Dynamic_string *pdyn_str) { return pdyn_str->len; }
 
-void fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list)
+int fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list,
+                 int words_list_len)
 {
     int i;
+    int status = 0;
     str[0] = '\0';
 
     /* Fill dynamic string */
     for (i = 0; i < pdyn_str->count_strings - 1; i++)
     {
+        if (pdyn_str->indexes[i] >= words_list_len)
+            return 0;
         strcat(str, pdyn_str->strings[i]);
         strcat(str, words_list[pdyn_str->indexes[i]]);
+        status++;
     }
     strcat(str, pdyn_str->strings[pdyn_str->count_strings - 1]);
+    return status;
 }
 
 char *parse_splitted(char *str)

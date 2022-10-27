@@ -307,8 +307,13 @@ static void compute_dynamic_strings(Display_context *pdc, char **words_list)
                 strlen_dyn_str(pdc->text_rendering.ptext[i].pdyn_str) + 1;
             pdc->text_rendering.ptext[i].string =
                 (char *)malloc(sizeof(char) * word_max_len);
-            fill_dyn_str(pdc->text_rendering.ptext[i].string,
-                         pdc->text_rendering.ptext[i].pdyn_str, words_list);
+            if (!fill_dyn_str(pdc->text_rendering.ptext[i].string,
+                              pdc->text_rendering.ptext[i].pdyn_str, words_list,
+                              words_list_len))
+            {
+                fprintf(stderr, "ERROR: not enough strings provided\n");
+                exit(1);
+            }
             print_loge("DEBUG: dyn_str is [%s]\n",
                        pdc->text_rendering.ptext[i].string);
         }
