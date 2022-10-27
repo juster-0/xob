@@ -253,6 +253,7 @@ Input_value parse_input(char **words_list, int size)
     input_value.input_string = (char *)malloc(sizeof(char) * 200);
     char *inp_word;
     int word_index;
+    int num_len, temp_num;
 
     input_value.valid = false;
 
@@ -278,16 +279,33 @@ Input_value parse_input(char **words_list, int size)
             break;
     }
 
-    // if (scanf("%d", &(input_value.value)) > 0)
     if (sscanf(words_list[0], "%d", &(input_value.value)) > 0)
     {
-        // TODO FIXME checking for the "alternative mode"
+        // checking for the "alternative mode"
         input_value.show_mode = NORMAL;
+
+        /* Calculate input_value.value length */
+        temp_num = input_value.value;
+        num_len = 0;
+        while (temp_num > 0)
+        {
+            num_len++;
+            temp_num /= 10;
+        }
+
         /* Checking for the "alternative mode" flag : '!' */
-        // if (scanf("%c", &altflag) > 0 && altflag == '!')
-        //     input_value.show_mode = ALTERNATIVE;
-        // else
-        //     input_value.show_mode = NORMAL;
+        if (sscanf(words_list[0] + num_len, "%c", &altflag) > 0 &&
+            altflag == '!')
+        {
+            print_loge("DEBUG: Input_value parse_input altflag is '%c'\n",
+                       altflag);
+            input_value.show_mode = ALTERNATIVE;
+        }
+        else
+        {
+            // print_loge("DEBUG: Input_value parse_input altflag is NULL\n");
+            input_value.show_mode = NORMAL;
+        }
 
         input_value.valid = true;
     }

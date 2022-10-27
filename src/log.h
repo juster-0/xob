@@ -16,9 +16,9 @@
  */
 
 #ifndef LOG_H
-#ifdef DEBUG
-
 #include <stdio.h>
+
+#ifdef DEBUG
 #define print_loge(fmt, ...)                                                   \
     do                                                                         \
     {                                                                          \
@@ -26,7 +26,6 @@
     } while (0)
 
 #else /* DEBUG */
-
 #define print_loge(fmt, ...)
 
 #endif /* DEBUG */
