@@ -22,6 +22,7 @@
 #include "parser.h"
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
+#include <X11/extensions/Xdbe.h>
 #include <X11/extensions/Xrandr.h>
 #include <stdbool.h>
 
@@ -90,6 +91,7 @@ typedef struct
     Window window;
     Bool mapped;
     MonitorInfo monitor_info;
+    XdbeBackBuffer back_buffer;
 } X_context;
 
 typedef struct

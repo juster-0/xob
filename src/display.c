@@ -23,6 +23,7 @@
 #include <X11/Xft/Xft.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/Xdbe.h>
 #include <X11/extensions/Xrandr.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -563,9 +564,23 @@ Display_context init(Style conf)
         CWColormap | CWBorderPixel | CWOverrideRedirect;
     Atom atom_net_wm_window_type, atom_net_wm_window_type_desktop;
 
+    int xdbe_major_version, xdbe_minor_version;
+
     dc.x.display = XOpenDisplay(NULL);
     if (dc.x.display != NULL)
     {
+        if (XdbeQueryExtension(dc.x.display, &xdbe_major_version,
+                               &xdbe_minor_version))
+        {
+            print_loge("DEBUG: XDBE version %d.%d.\n", xdbe_major_version,
+                       xdbe_minor_version);
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: XDBE is not supported.\n");
+            exit(2);
+        }
+
         dc.x.screen_number = DefaultScreen(dc.x.display);
         dc.x.screen = ScreenOfDisplay(dc.x.display, dc.x.screen_number);
         root = RootWindow(dc.x.display, dc.x.screen_number);
@@ -641,9 +656,17 @@ Display_context init(Style conf)
                           dc_depth.depth, InputOutput, dc_depth.visuals,
                           window_attributes_flags, &window_attributes);
 
+        /* Create second buffer */
+        dc.x.back_buffer =
+            XdbeAllocateBackBufferName(dc.x.display, dc.x.window, 0);
+
         dc.text_rendering.xft_draw =
-            XftDrawCreate(dc.x.display, dc.x.window, dc.text_rendering.visual,
-                          dc.text_rendering.colormap);
+            XftDrawCreate(dc.x.display, dc.x.back_buffer,
+                          dc.text_rendering.visual, dc.text_rendering.colormap);
+        // dc.text_rendering.xft_draw =
+        //     XftDrawCreate(dc.x.display, dc.x.window,
+        //     dc.text_rendering.visual,
+        //                   dc.text_rendering.colormap);
 
         /* Set a WM_CLASS for the window */
         XClassHint *class_hint = XAllocClassHint();
@@ -697,6 +720,7 @@ void display_context_destroy(Display_context *pdc)
     free(pdc->text_rendering.ptext);
 
     XftDrawDestroy(pdc->text_rendering.xft_draw);
+    XdbeDeallocateBackBufferName(pdc->x.display, pdc->x.back_buffer);
 
     XCloseDisplay(pdc->x.display);
 }
@@ -774,7 +798,7 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
     }
 
     /* Redraw empty bar only if needed */
-    if (last_state != current_state || old_length != pdc->geometry.length)
+    if (last_state != current_state || old_length != pdc->geometry.length || 1)
     {
         /* Empty bar */
         draw_empty(pdc->x, pdc->geometry, colors);
@@ -806,6 +830,10 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         {
             print_loge("DEBUG: draw_text [%d] [%s]\n", i,
                        pdc->text_rendering.ptext[i].string);
+            // pdc->text_rendering.xft_draw->drawable = pdc->x.back_buffer;
+            // BUG FIXME without next function in some cases text is not
+            // rendered
+            XftDrawChange(pdc->text_rendering.xft_draw, pdc->x.back_buffer);
             XftDrawStringUtf8(
                 pdc->text_rendering.xft_draw,
                 &pdc->text_rendering.ptext[i].font_color,
@@ -825,6 +853,10 @@ void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
         }
     }
 
+    XdbeSwapInfo swap_info;
+    swap_info.swap_window = pdc->x.window;
+    swap_info.swap_action = 0;
+    XdbeSwapBuffers(pdc->x.display, &swap_info, 1);
     XFlush(pdc->x.display);
 }
 

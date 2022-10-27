@@ -37,7 +37,8 @@ void fill_rectangle(X_context xc, Color color, int x, int y, unsigned int w,
                     unsigned int h)
 {
     GC xgc = gc_from_color(xc, color);
-    XFillRectangle(xc.display, xc.window, xgc, x, y, w, h);
+    // XFillRectangle(xc.display, xc.window, xgc, x, y, w, h);
+    XFillRectangle(xc.display, xc.back_buffer, xgc, x, y, w, h);
     XFreeGC(xc.display, xgc);
 }
 

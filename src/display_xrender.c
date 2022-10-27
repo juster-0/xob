@@ -87,7 +87,8 @@ void fill_rectangle(X_context xc, Color c, int x, int y, unsigned int w,
     XRenderPictFormat *pfmt =
         XRenderFindVisualFormat(xc.display, attrib.visual);
 
-    Picture pict = XRenderCreatePicture(xc.display, xc.window, pfmt, 0, 0);
+    // Picture pict = XRenderCreatePicture(xc.display, xc.window, pfmt, 0, 0);
+    Picture pict = XRenderCreatePicture(xc.display, xc.back_buffer, pfmt, 0, 0);
     XRenderFillRectangle(xc.display, PictOpSrc, pict, &xrc, x, y, w, h);
     XRenderFreePicture(xc.display, pict);
 }

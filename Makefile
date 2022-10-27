@@ -1,7 +1,7 @@
 PROGRAM = xob
 MANPAGE = doc/xob.1
 SYSCONF = styles.cfg
-LIBS    = x11 libconfig xrandr xft
+LIBS    = x11 libconfig xrandr xft xext
 SOURCES = src/conf.c src/display.c src/main.c src/parser.c
 
 # Feature: alpha channel (transparency)
