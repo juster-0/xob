@@ -410,7 +410,7 @@ static void move_resize_to_coords_monitor(Display_context *pdc, int x, int y)
                       pdc->geometry.y.offset + pdc->geometry.y.max);
 }
 
-/* Mobe the bar to monitor with focused window */
+/* Move the bar to monitor with focused window */
 static void move_resize_to_focused_monitor(Display_context *pdc)
 {
     int revert_to_window;
@@ -432,8 +432,13 @@ static void move_resize_to_focused_monitor(Display_context *pdc)
                  &dummy_y, &focused_width, &focused_height, &focused_border,
                  &focused_depth);
 
-    move_resize_to_coords_monitor(pdc, focused_x + focused_width / 2,
-                                  focused_y + focused_height / 2);
+    print_loge("DEBUG: focused_x [%d] focused_y [%d]\n", focused_x, focused_y);
+    // TODO Get active "monitor" if there is no focused windows
+    /* if coordinates of active window is correct then recalculate position
+     * otherwise don't do anything with positioning and resizing */
+    if (focused_x >= 0 || focused_y >= 0)
+        move_resize_to_coords_monitor(pdc, focused_x + focused_width / 2,
+                                      focused_y + focused_height / 2);
 }
 
 /* Move the bar to monitor with pointer */
