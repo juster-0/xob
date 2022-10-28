@@ -462,8 +462,11 @@ static void init_text(Display_context *pdc, const Style *pconf)
     /* if no text found in conf then not init text rendering */
     if (pdc->text_rendering.text_count == 0)
     {
+        print_loge_once("DEBUG: text_count is 0\n");
         pdc->geometry.x.offset = 0;
         pdc->geometry.y.offset = 0;
+        pdc->geometry.x.max = pdc->geometry.size_x;
+        pdc->geometry.y.max = pdc->geometry.size_y;
         pdc->text_rendering.ptext = NULL;
         return;
     }
@@ -646,6 +649,7 @@ Display_context init(Style conf)
 
         /* init text context */
         init_text(&dc, &conf);
+        print_loge_once("DEBUG: init_text successful\n");
 
         /* Creation of the window */
         dc.x.window =
@@ -655,14 +659,25 @@ Display_context init(Style conf)
                           dc.geometry.y.offset + dc.geometry.y.max, 0,
                           dc_depth.depth, InputOutput, dc_depth.visuals,
                           window_attributes_flags, &window_attributes);
+        print_loge_once("DEBUG: Window created\n");
 
         /* Create second buffer */
         dc.x.back_buffer =
             XdbeAllocateBackBufferName(dc.x.display, dc.x.window, 0);
+        print_loge_once("DEBUG: Back buffer allocated successfylly\n");
 
-        dc.text_rendering.xft_draw =
-            XftDrawCreate(dc.x.display, dc.x.back_buffer,
-                          dc.text_rendering.visual, dc.text_rendering.colormap);
+        if (dc.text_rendering.text_count != 0)
+        {
+            dc.text_rendering.xft_draw = XftDrawCreate(
+                dc.x.display, dc.x.back_buffer, dc.text_rendering.visual,
+                dc.text_rendering.colormap);
+            print_loge_once("DEBUG: XFT Draw created successfully\n");
+        }
+        else
+        {
+            print_loge_once(
+                "DEBUG: XFT Draw is not created, text_count is 0\n");
+        }
         // dc.text_rendering.xft_draw =
         //     XftDrawCreate(dc.x.display, dc.x.window,
         //     dc.text_rendering.visual,
@@ -677,6 +692,7 @@ Display_context init(Style conf)
             XSetClassHint(dc.x.display, dc.x.window, class_hint);
             XFree(class_hint);
         }
+        print_loge_once("DEBUG: WM_CLASS set successfully\n");
 
         /* Set _NET_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_DESKTOP to prevent
          * rendering compositor borders */
@@ -687,6 +703,8 @@ Display_context init(Style conf)
         XChangeProperty(dc.x.display, dc.x.window, atom_net_wm_window_type,
                         XA_ATOM, 32, PropModeReplace,
                         (unsigned char *)&atom_net_wm_window_type_desktop, 1);
+        print_loge_once(
+            "DEBUG: Set _NET_WINDOW_TYPE to _NET_WM_WINDOWS_TYPE_DESKTOP\n");
 
         /* The new window is not mapped yet */
         dc.x.mapped = False;
@@ -695,6 +713,7 @@ Display_context init(Style conf)
         dc.colorscheme = conf.colorscheme;
     }
 
+    print_loge_once("DEBUG: finish initialization\n");
     return dc;
 }
 
@@ -719,7 +738,8 @@ void display_context_destroy(Display_context *pdc)
     }
     free(pdc->text_rendering.ptext);
 
-    XftDrawDestroy(pdc->text_rendering.xft_draw);
+    if (pdc->text_rendering.text_count != 0)
+        XftDrawDestroy(pdc->text_rendering.xft_draw);
     XdbeDeallocateBackBufferName(pdc->x.display, pdc->x.back_buffer);
 
     XCloseDisplay(pdc->x.display);

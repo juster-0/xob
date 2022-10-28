@@ -25,8 +25,15 @@
         fprintf(stderr, fmt, ##__VA_ARGS__);                                   \
     } while (0)
 
+#define print_loge_once(msg)                                                   \
+    do                                                                         \
+    {                                                                          \
+        fprintf(stderr, msg);                                                  \
+    } while (0)
+
 #else /* DEBUG */
 #define print_loge(fmt, ...)
+#define print_loge_once(msg)
 
 #endif /* DEBUG */
 #endif /* LOG_H_ */
