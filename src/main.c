@@ -273,7 +273,9 @@ Input_value parse_input(char **words_list, int size)
         return input_value;
     }
     else
+    {
         print_loge_once("DEBUG: read_status is not NULL\n");
+    }
     input_value.input_string[strlen(input_value.input_string) - 1] = '\0';
     print_loge("DEBUG: input_value.input_string is [%s]\n",
                input_value.input_string);
