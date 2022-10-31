@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
+#include <time.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -207,10 +208,12 @@ int main(int argc, char *argv[])
                            displayed && timeout > 0 ? &tv : NULL))
             {
             case -1:
+                print_loge_once("DEBUG: select error\n");
                 perror("select()");
                 exit(EXIT_FAILURE);
             case 0:
                 /* Time to hide the gauge */
+                print_loge_once("DEBUG: select timeout, hide the bar\n");
                 hide(&display_context);
                 displayed = false;
                 break;
@@ -230,6 +233,10 @@ int main(int argc, char *argv[])
                 else
                 {
                     /* Stop after unexpected input */
+                    struct timespec wait_time = {timeout / 1000,
+                                                 1000 * (timeout % 1000)};
+                    nanosleep(&wait_time, NULL); // Waiting for timeout
+                    hide(&display_context);
                     listening = false;
                 }
                 free_input_value(&input_value);
@@ -245,6 +252,7 @@ int main(int argc, char *argv[])
 
 Input_value parse_input(char **words_list, int size)
 {
+    print_loge_once("DEBUG: parse_input()\n");
     Input_value input_value;
     char altflag;
 
@@ -258,8 +266,17 @@ Input_value parse_input(char **words_list, int size)
     input_value.valid = false;
 
     /* Get input */
-    fgets(input_value.input_string, 200, stdin);
+    char *read_status = fgets(input_value.input_string, 200, stdin);
+    if (read_status == NULL)
+    {
+        print_loge_once("DEBUG: read_status is NULL\n");
+        return input_value;
+    }
+    else
+        print_loge_once("DEBUG: read_status is not NULL\n");
     input_value.input_string[strlen(input_value.input_string) - 1] = '\0';
+    print_loge("DEBUG: input_value.input_string is [%s]\n",
+               input_value.input_string);
 
     /* Split line by tokens */
     if (strlen(input_value.input_string) > 0)

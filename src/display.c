@@ -754,6 +754,7 @@ void display_context_destroy(Display_context *pdc)
 void show(Display_context *pdc, int value, int cap, Overflow_mode overflow_mode,
           Show_mode show_mode, char **words_list)
 {
+    print_loge_once("DEBUG: show()\n");
     Colors colors;
     Colors colors_overflow_proportional;
     static int_fast8_t current_state = 0x0;
