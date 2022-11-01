@@ -285,6 +285,7 @@ Input_value parse_input(char **words_list, int size)
     {
         inp_word = parse_splitted(input_value.input_string);
         words_list[0] = inp_word;
+        print_loge("DEBUG: input_string[0] is [%s]\n", words_list[0]);
     }
     else
     {
@@ -296,6 +297,8 @@ Input_value parse_input(char **words_list, int size)
         words_list[word_index] = parse_splitted(NULL);
         if (words_list[word_index] == NULL)
             break;
+        print_loge("DEBUG: input_string[%d] is [%s]\n", word_index,
+                   words_list[word_index]);
     }
 
     if (sscanf(words_list[0], "%d", &(input_value.value)) > 0)

@@ -16,6 +16,7 @@
  */
 
 #include "parser.h"
+#include "log.h"
 
 #include <ctype.h>
 #include <inttypes.h>
@@ -172,10 +173,11 @@ char *parse_splitted(char *str)
 {
     static char *input;
     char *lead;
-    _Bool in_block = 0;
+    bool in_block = false;
     uint8_t block_index;
     char *p_block_index;
     char *block_chars = "\"'";
+    size_t string_len;
 
     if (str != NULL)
     {
@@ -190,14 +192,13 @@ char *parse_splitted(char *str)
     }
     while (input[0] != '\0')
     {
-        // printf("in_block[%d]\n", in_block);
         if (in_block)
         {
             // printf("input is [%s]\n", input);
             // printf("in_block block_index[%d]\n", block_index);
             p_block_index = strchr(input, block_chars[block_index]);
             // printf("p_block_index [%s]\n", p_block_index);
-            in_block = 0;
+            in_block = false;
             if (p_block_index)
             {
                 // printf("found end\n");
@@ -223,13 +224,50 @@ char *parse_splitted(char *str)
             block_index = p_block_index - block_chars;
             // printf("block_index[%d]\n", block_index);
             // printf("lead [%s]\n", lead);
-            in_block = 1;
+            in_block = true;
             lead++;
             input++;
             continue;
         }
 
-        if (strchr(" ", input[0]) != NULL)
+        /* Allow escape special symbols with \ */
+        if (input[0] == '\\')
+        {
+            switch (input[1])
+            {
+            case '\\':
+            case ' ':
+            case '\'':
+            case '"':
+                string_len = strlen(input + 1);
+                memmove(input, input + 1, string_len + 1);
+                input++;
+                continue;
+                break;
+            case 'n':
+            case 't':
+                fprintf(stderr, "Warning: \\n and \\t are not supported by"
+                                " xob, don't use them (we may add them in the"
+                                " future\n");
+                input += 2;
+                continue;
+            case '\0':
+                fprintf(stderr, "Warning: no specifier found after \\\n");
+                input++;
+                continue;
+                break;
+            default:
+                fprintf(stderr,
+                        "Warning: \\%c is not correct escape"
+                        " sequece, don't use them\n",
+                        input[1]);
+                input += 2;
+                continue;
+                break;
+            }
+        }
+
+        if (input[0] == ' ')
         {
             if (input - lead == 0)
             {
