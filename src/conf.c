@@ -16,6 +16,7 @@
  */
 
 #include "conf.h"
+#include "log.h"
 #include <errno.h>
 #include <libconfig.h>
 #include <stdbool.h>
@@ -254,6 +255,11 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
     if (text_setting != NULL)
     {
         const char *stringvalue;
+
+        /* init with NULL */
+        text->font_name = NULL;
+        text->string = NULL;
+
         if (config_setting_lookup_string(text_setting, "font_name",
                                          &stringvalue))
         {
@@ -262,7 +268,13 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
             text->font_name[strlen(stringvalue)] = '\0';
         }
         else
-            text->font_name = NULL;
+        {
+            fprintf(
+                stderr,
+                "Error: missing or incorrect \"font_name\" field, line %d\n",
+                config_setting_source_line(text_setting));
+            return CONFIG_FALSE;
+        }
 
         if (config_setting_lookup_string(text_setting, "string", &stringvalue))
         {
@@ -271,7 +283,12 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
             text->string[strlen(stringvalue)] = '\0';
         }
         else
-            text->string = NULL;
+        {
+            fprintf(stderr,
+                    "Error: missing or incorrect \"string\" field, line %d\n",
+                    config_setting_source_line(text_setting));
+            return CONFIG_FALSE;
+        }
 
         if (config_setting_lookup_string(text_setting, "color", &stringvalue))
         {
@@ -292,8 +309,22 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
         else
             text->color[0] = '\0';
 
-        config_setting_lookup_dim(text_setting, "x", &text->x);
-        config_setting_lookup_dim(text_setting, "y", &text->y);
+        if (!config_setting_lookup_dim(text_setting, "x", &text->x))
+        {
+            fprintf(stderr,
+                    "Error: missing or incorrect \"x\" field in \"text"
+                    "\" section, line %d\n",
+                    config_setting_source_line(text_setting));
+            return CONFIG_FALSE;
+        }
+        if (!config_setting_lookup_dim(text_setting, "y", &text->y))
+        {
+            fprintf(stderr,
+                    "Error: missing or incorrect \"y\" field in \"text"
+                    "\" section, line %d\n",
+                    config_setting_source_line(text_setting));
+            return CONFIG_FALSE;
+        }
 
         align_setting = config_setting_get_member(text_setting, "align");
         if (align_setting != NULL)
@@ -302,6 +333,14 @@ static int config_setting_lookup_text_elem(const config_setting_t *text_setting,
                                                &text->align.x);
             config_setting_lookup_float_or_int(align_setting, "y",
                                                &text->align.y);
+        }
+        else
+        {
+            fprintf(stderr,
+                    "Error: missing \"align\" field in \"text\" section,"
+                    " line %d\n",
+                    config_setting_source_line(text_setting));
+            return CONFIG_FALSE;
         }
 
         return CONFIG_TRUE;
@@ -322,7 +361,8 @@ static int config_setting_lookup_text_list(const config_setting_t *setting,
     {
         if (!config_setting_is_list(text_settings))
         {
-            fprintf(stderr, "Error: text is not a list\n");
+            fprintf(stderr,
+                    "Error: text is not a list, read the manual to fix\n");
         }
 
         ptext_list->len = config_setting_length(text_settings);
@@ -335,10 +375,11 @@ static int config_setting_lookup_text_list(const config_setting_t *setting,
         }
 
         /* if error occurred free all memory */
-        if (status != CONFIG_TRUE)
+        if (status == CONFIG_FALSE)
         {
+            print_loge_once("DEBUG: error in text config, free memory\n");
             int i2;
-            for (i2 = i; i2 >= 0; i2--)
+            for (i2 = 0; i2 < i; i2++)
             {
                 free(ptext_list->ptext[i2].string);
                 free(ptext_list->ptext[i2].font_name);
@@ -349,8 +390,10 @@ static int config_setting_lookup_text_list(const config_setting_t *setting,
     }
     else
     {
-        fprintf(stderr, "Info: No text config found\n");
-        return CONFIG_FALSE;
+        fprintf(stderr, "Info: no text config found\n");
+        ptext_list->ptext = NULL;
+        ptext_list->len = 0;
+        return CONFIG_TRUE;
     }
 }
 
@@ -397,15 +440,20 @@ Style parse_style_config(FILE *file, const char *stylename, Style default_style)
             if (config_setting_lookup_text_list(
                     xob_config, "text", &style.text_list) == CONFIG_FALSE)
             {
+                print_loge_once("DEBUG: error in text config, aborting...\n");
+                exit(EXIT_FAILURE);
                 style.text_list.len = 0;
                 style.text_list.ptext = NULL;
             }
 
+#ifdef DEBUG
             int i;
             for (i = 0; i < style.text_list.len; i++)
             {
-                printf("[%2d] [%s]\n", i, style.text_list.ptext[i].font_name);
+                print_loge("DEBUG: [%2d] [%s]\n", i,
+                           style.text_list.ptext[i].font_name);
             }
+#endif
         }
         else
         {
