@@ -25,9 +25,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void dyn_str_add_node(Dynamic_string *pdyn_str,
+                             Dynamic_string_node *pdyn_node);
+
 Dynamic_string generate_dyn_str(const char *str)
 {
     Dynamic_string dyn_str;
+    Dynamic_string_node *dyn_str_node;
     char *start;
     char *end = strchr(str, '\0');
     const char *lead = str;
@@ -39,12 +43,18 @@ Dynamic_string generate_dyn_str(const char *str)
     buffer[0] = '\0';
 
     dyn_str.inserts = 0;
-    dyn_str.count_strings = 0;
+    dyn_str.first = NULL;
 
     while (loop == 0)
     {
-        start = strchr(lead, '{');
-        if (start == NULL)
+        dyn_str_node =
+            (Dynamic_string_node *)malloc(sizeof(Dynamic_string_node));
+        print_loge_once("DEBUG: malloc memory for Dynamic_string_node\n");
+        dyn_str_node->next = NULL;
+        dyn_str_node->str = NULL;
+
+        start = strchr(lead, '{'); // Look for the first '{'
+        if (start == NULL)         // if no '{' found so finish parsing
         {
             loop = 1;
             break;
@@ -52,17 +62,18 @@ Dynamic_string generate_dyn_str(const char *str)
         else if (end - start > 1)
         {
             if (isdigit(start[1])) // Define if the next symbol
-            {                      // after { is digit
+            {                      // after '{' is digit
                 s_result = sscanf(&start[1], "%d", &index);
 
-                if (start[s_result + 1] != '}') // Check if } exists after
+                if (start[s_result + 1] != '}') // Check if '}' exists after
                 {                               // number
                     loop = 1;
                     break;
                 }
+                /* syntax is correct, add part before '{' to dyn_str and add
+                 * index to a node with str */
 
-                dyn_str.indexes[dyn_str.inserts] = index; // set indexes
-                dyn_str.inserts++;
+                dyn_str_node->index = index;
 
                 /* Copy text before { to the buffer */
                 strncat(buffer, lead, start - lead);
@@ -71,19 +82,25 @@ Dynamic_string generate_dyn_str(const char *str)
 
                 lead = start + s_result + 2;
 
-                dyn_str.strings[dyn_str.count_strings] =
-                    (char *)malloc(sizeof(char) * strlen(buffer) + 1);
-                strncpy(dyn_str.strings[dyn_str.count_strings], buffer,
-                        strlen(buffer) + 1);
-                dyn_str.count_strings++;
+                /* malloc memory for str */
+                dyn_str_node->str =
+                    (char *)malloc(sizeof(char) + strlen(buffer) + 1);
+                strncpy(dyn_str_node->str, buffer, strlen(buffer) + 1);
+
+                /* make buffer "empty" */
                 buffer[0] = '\0';
                 buffer_size = 0;
 
+                /* add node to dyn_str */
+                dyn_str_add_node(&dyn_str, dyn_str_node);
+
                 continue;
             }
-            else if (start[1] == '{')
+            else if (start[1] == '{') // '{{' is '{' in str
             {
+                /* copy content before the first '{' */
                 strncat(buffer, lead, start - lead);
+                /* set \0 to buffer after previous str */
                 buffer[buffer_size + start - lead + 1] = '\0';
                 buffer_size += start - lead;
                 buffer[buffer_size - 0] = '{';
@@ -110,62 +127,81 @@ Dynamic_string generate_dyn_str(const char *str)
     case 0:
         break;
     case 1:
+        print_loge_once("DEBUG: get last line of dyn_str\n");
         strncat(buffer, lead, end - lead);
         buffer[buffer_size + end - lead + 1] = '\0';
         buffer_size += end - lead;
 
-        dyn_str.strings[dyn_str.count_strings] =
-            (char *)malloc(sizeof(char) * strlen(buffer) + 1);
-        strncpy(dyn_str.strings[dyn_str.count_strings], buffer,
-                strlen(buffer) + 1);
-        dyn_str.count_strings++;
+        /* malloc and copy buffer to dyn_str_node */
+        dyn_str_node->str = (char *)malloc(sizeof(char) * strlen(buffer) + 1);
+        strncpy(dyn_str_node->str, buffer, strlen(buffer) + 1);
+
         buffer[0] = '\0';
         buffer_size = 0;
+
+        dyn_str_add_node(&dyn_str, dyn_str_node);
 
         break;
     default:
         break;
     }
 
-    int dyn_str_len = 0;
-    int i;
     /* Count length of dynamic_str */
-    for (i = 0; i < dyn_str.count_strings; i++)
+    int dyn_str_len = 0;
+    dyn_str_node = dyn_str.first;
+    while (dyn_str_node)
     {
-        dyn_str_len += strlen(dyn_str.strings[i]);
+        dyn_str_len += strlen(dyn_str_node->str);
+        dyn_str_node = dyn_str_node->next;
     }
-    dyn_str.len = dyn_str_len;
+    dyn_str.str_len = dyn_str_len;
+    print_loge("DEBUG: dyn_str_len is [%d]\n", dyn_str_len);
 
     return dyn_str;
 }
 
 void free_dyn_str(Dynamic_string *pdyn_str)
 {
-    int i;
-    for (i = 0; i < pdyn_str->count_strings; i++)
-        free(pdyn_str->strings[i]);
-    return;
+    Dynamic_string_node *dyn_str_node, *dyn_str_node_prev;
+
+    dyn_str_node_prev = NULL;
+    dyn_str_node = pdyn_str->first;
+    while (dyn_str_node)
+    {
+        free(dyn_str_node->str);
+        free(dyn_str_node_prev);
+
+        dyn_str_node_prev = dyn_str_node;
+        dyn_str_node = dyn_str_node->next;
+    }
+    free(dyn_str_node_prev);
+
+    pdyn_str->first = 0;
+    pdyn_str->inserts = 0;
+    pdyn_str->str_len = 0;
 }
 
-int strlen_dyn_str(const Dynamic_string *pdyn_str) { return pdyn_str->len; }
+int strlen_dyn_str(const Dynamic_string *pdyn_str) { return pdyn_str->str_len; }
 
 int fill_dyn_str(char *str, Dynamic_string *pdyn_str, char **words_list,
                  int words_list_len)
 {
-    int i;
     int status = 0;
     str[0] = '\0';
 
     /* Fill dynamic string */
-    for (i = 0; i < pdyn_str->count_strings - 1; i++)
+    Dynamic_string_node *dyn_str_node = pdyn_str->first;
+    while (dyn_str_node->next)
     {
-        if (pdyn_str->indexes[i] >= words_list_len)
+        if (dyn_str_node->index >= words_list_len)
             return 0;
-        strcat(str, pdyn_str->strings[i]);
-        strcat(str, words_list[pdyn_str->indexes[i]]);
+        strcat(str, dyn_str_node->str);
+        strcat(str, words_list[dyn_str_node->index]);
         status++;
+        dyn_str_node = dyn_str_node->next;
     }
-    strcat(str, pdyn_str->strings[pdyn_str->count_strings - 1]);
+    strcat(str, dyn_str_node->str);
+
     return status;
 }
 
@@ -286,4 +322,29 @@ char *parse_splitted(char *str)
         input++;
     }
     return lead;
+}
+
+static void dyn_str_add_node(Dynamic_string *pdyn_str,
+                             Dynamic_string_node *pdyn_node)
+{
+    print_loge_once("DEBUG: add node to dyn_str\n");
+    Dynamic_string_node *dyn_str_node;
+    if (!pdyn_str->first)
+    {
+        pdyn_str->first = pdyn_node;
+        pdyn_str->inserts = 1;
+        return;
+    }
+    else
+    {
+        dyn_str_node = pdyn_str->first;
+    }
+
+    while (dyn_str_node->next)
+        dyn_str_node = dyn_str_node->next;
+
+    dyn_str_node->next = pdyn_node;
+    pdyn_str->inserts++;
+
+    return;
 }

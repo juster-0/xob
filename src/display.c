@@ -485,6 +485,8 @@ static void init_text(Display_context *pdc, const Style *pconf)
     pdc->text_rendering.visual = dc_depth.visuals;
 
     pdc->text_rendering.have_dynamic_strings = false;
+
+    print_loge_once("DEBUG: start init text\n");
     for (i = 0; i < pdc->text_rendering.text_count; i++)
     {
         /* Copy text position data to Text_context structure */
@@ -520,8 +522,11 @@ static void init_text(Display_context *pdc, const Style *pconf)
                     pconf->text_list.ptext[i].color);
 
         /* Copy string to context */
+        print_loge("DEBUG: raw string [%s]\n",
+                   pconf->text_list.ptext[i].string);
+        print_loge_once("DEBUG: trying to generate dynamic string\n");
         dyn_str = generate_dyn_str(pconf->text_list.ptext[i].string);
-        if (dyn_str.inserts == 0)
+        if (dyn_str.inserts == 1)
         {
             fprintf(stderr, "Info: loading static string [%s].\n",
                     pconf->text_list.ptext[i].string);

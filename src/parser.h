@@ -22,13 +22,19 @@
 
 #define MAX_DYN_STR_SIZE 10
 
+typedef struct dyn_str_node
+{
+    struct dyn_str_node *next;
+
+    char *str;
+    int index;
+} Dynamic_string_node;
+
 typedef struct
 {
-    int indexes[MAX_DYN_STR_SIZE];
-    char *strings[MAX_DYN_STR_SIZE];
+    Dynamic_string_node *first;
+    int str_len;
     int inserts;
-    int count_strings;
-    int len;
 } Dynamic_string;
 
 typedef struct
