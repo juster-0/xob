@@ -29,8 +29,9 @@ typedef struct
     int value;
     Show_mode show_mode;
     char *input_string;
+    char **strs_list;
 } Input_value;
 
-Input_value parse_input(char ** words_list, int size);
-void free_input_value(Input_value * p_input_value);
+Input_value parse_input(void);
+void free_input_value(Input_value *p_input_value);
 #endif

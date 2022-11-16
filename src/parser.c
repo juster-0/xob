@@ -31,12 +31,11 @@ static void dyn_str_add_node(Dynamic_string *pdyn_str,
 Dynamic_string generate_dyn_str(const char *str)
 {
     Dynamic_string dyn_str;
-    Dynamic_string_node *dyn_str_node;
+    Dynamic_string_node *dyn_str_node = NULL;
     char *start;
     char *end = strchr(str, '\0');
     const char *lead = str;
     int index;
-    int s_result;
     int loop = 0;
     char buffer[strlen(str) + 1];
     int buffer_size = 0;
@@ -47,11 +46,14 @@ Dynamic_string generate_dyn_str(const char *str)
 
     while (loop == 0)
     {
-        dyn_str_node =
-            (Dynamic_string_node *)malloc(sizeof(Dynamic_string_node));
-        print_loge_once("DEBUG: malloc memory for Dynamic_string_node\n");
-        dyn_str_node->next = NULL;
-        dyn_str_node->str = NULL;
+        if (!dyn_str_node)
+        {
+            dyn_str_node =
+                (Dynamic_string_node *)malloc(sizeof(Dynamic_string_node));
+            print_loge_once("DEBUG: malloc memory for Dynamic_string_node\n");
+            dyn_str_node->next = NULL;
+            dyn_str_node->str = NULL;
+        }
 
         start = strchr(lead, '{'); // Look for the first '{'
         if (start == NULL)         // if no '{' found so finish parsing
@@ -61,12 +63,19 @@ Dynamic_string generate_dyn_str(const char *str)
         }
         else if (end - start > 1)
         {
-            if (isdigit(start[1])) // Define if the next symbol
-            {                      // after '{' is digit
-                s_result = sscanf(&start[1], "%d", &index);
+            /* Define if the next symbol after '{' is digit */
+            if (sscanf(&start[1], "%d", &index))
+            {
+                /* Get index length */
+                int i, index_length;
+                for (i = index / 10, index_length = 1; i > 0;
+                     i /= 10, index_length++)
+                    continue;
+                print_loge("DEBUG: index_length is [%d]\n", index_length);
 
-                if (start[s_result + 1] != '}') // Check if '}' exists after
-                {                               // number
+                /* Check if '}' exists after number */
+                if (start[index_length + 1] != '}')
+                {
                     loop = 1;
                     break;
                 }
@@ -80,27 +89,28 @@ Dynamic_string generate_dyn_str(const char *str)
                 buffer[buffer_size + start - lead + 1] = '\0';
                 buffer_size += start - lead;
 
-                lead = start + s_result + 2;
+                lead = start + index_length + 2;
 
-                /* malloc memory for str */
+                /* Malloc memory for str */
                 dyn_str_node->str =
                     (char *)malloc(sizeof(char) + strlen(buffer) + 1);
                 strncpy(dyn_str_node->str, buffer, strlen(buffer) + 1);
 
-                /* make buffer "empty" */
+                /* Make buffer "empty" */
                 buffer[0] = '\0';
                 buffer_size = 0;
 
-                /* add node to dyn_str */
+                /* Add node to dyn_str */
                 dyn_str_add_node(&dyn_str, dyn_str_node);
+                dyn_str_node = NULL;
 
                 continue;
             }
             else if (start[1] == '{') // '{{' is '{' in str
             {
-                /* copy content before the first '{' */
+                /* Copy content before the first '{' */
                 strncat(buffer, lead, start - lead);
-                /* set \0 to buffer after previous str */
+                /* Set \0 to buffer after previous str */
                 buffer[buffer_size + start - lead + 1] = '\0';
                 buffer_size += start - lead;
                 buffer[buffer_size - 0] = '{';
@@ -132,7 +142,7 @@ Dynamic_string generate_dyn_str(const char *str)
         buffer[buffer_size + end - lead + 1] = '\0';
         buffer_size += end - lead;
 
-        /* malloc and copy buffer to dyn_str_node */
+        /* Malloc and copy buffer to dyn_str_node */
         dyn_str_node->str = (char *)malloc(sizeof(char) * strlen(buffer) + 1);
         strncpy(dyn_str_node->str, buffer, strlen(buffer) + 1);
 

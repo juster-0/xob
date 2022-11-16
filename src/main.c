@@ -16,6 +16,13 @@
  */
 
 #define _XOPEN_SOURCE 500
+
+#ifdef __STDC_ALLOC_LIB__
+#define __STDC_WANT_LIB_EXT2__ 1
+#else
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "main.h"
 #include "conf.h"
 #include "display.h"
@@ -183,8 +190,6 @@ int main(int argc, char *argv[])
 
     style_free(&style);
 
-    char *words_list[MAX_DYN_STR_SIZE + 1]; // TODO dymamic list length
-
     if (display_context.x.display == NULL)
     {
         fprintf(stderr, "Error: Cannot open display\n");
@@ -219,11 +224,12 @@ int main(int argc, char *argv[])
                 break;
             default:
                 /* Update display using new input value */
-                input_value = parse_input(words_list, MAX_DYN_STR_SIZE + 1);
+                input_value = parse_input();
                 if (input_value.valid)
                 {
                     show(&display_context, input_value.value, cap,
-                         style.overflow, input_value.show_mode, words_list);
+                         style.overflow, input_value.show_mode,
+                         input_value.strs_list);
                     printf("Update: %d/%d %s\n", input_value.value, cap,
                            (input_value.show_mode == ALTERNATIVE) ? "[ALT]"
                                                                   : "");
@@ -250,15 +256,16 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-Input_value parse_input(char **words_list, int size)
+Input_value parse_input(void)
 {
     print_loge_once("DEBUG: parse_input()\n");
     Input_value input_value;
     char altflag;
 
-    // char input_string[200];     // TODO dynamic length
-    // TODO change malloc to something more simple
-    input_value.input_string = (char *)malloc(sizeof(char) * 200);
+    ssize_t readed_chars;
+    size_t getline_len;
+    input_value.input_string = NULL;
+
     char *inp_word;
     int word_index;
     int num_len, temp_num;
@@ -266,8 +273,10 @@ Input_value parse_input(char **words_list, int size)
     input_value.valid = false;
 
     /* Get input */
-    char *read_status = fgets(input_value.input_string, 200, stdin);
-    if (read_status == NULL)
+    readed_chars = getline(&input_value.input_string, &getline_len, stdin);
+    print_loge("DEBUG: readed_chars is [%ld][%lu]\n", readed_chars,
+               getline_len);
+    if (readed_chars < 0)
     {
         print_loge_once("DEBUG: read_status is NULL\n");
         return input_value;
@@ -276,32 +285,53 @@ Input_value parse_input(char **words_list, int size)
     {
         print_loge_once("DEBUG: read_status is not NULL\n");
     }
-    input_value.input_string[strlen(input_value.input_string) - 1] = '\0';
+    input_value.input_string[readed_chars - 1] = '\0';
     print_loge("DEBUG: input_value.input_string is [%s]\n",
                input_value.input_string);
 
-    /* Split line by tokens */
+    input_value.strs_list = (char **)malloc(sizeof(char *) * 11);
+    /* Split the first line by tokens */
     if (strlen(input_value.input_string) > 0)
     {
         inp_word = parse_splitted(input_value.input_string);
-        words_list[0] = inp_word;
-        print_loge("DEBUG: input_string[0] is [%s]\n", words_list[0]);
+        input_value.strs_list[0] = inp_word;
+        print_loge("DEBUG: input_string[0] is [%s]\n",
+                   input_value.strs_list[0]);
     }
     else
     {
         return input_value;
     }
 
-    for (word_index = 1; word_index < size - 1; word_index++)
+    /* Split remaining lines by tokens */
+    for (word_index = 1;; word_index++)
     {
-        words_list[word_index] = parse_splitted(NULL);
-        if (words_list[word_index] == NULL)
+        input_value.strs_list[word_index] = parse_splitted(NULL);
+        if (input_value.strs_list[word_index] == NULL)
             break;
         print_loge("DEBUG: input_string[%d] is [%s]\n", word_index,
-                   words_list[word_index]);
+                   input_value.strs_list[word_index]);
+
+        /* If lines more 10 than increase allocated memory for (char *) up to
+         * next 10 lines */
+        if ((word_index + 1) % 10 == 0)
+        {
+            input_value.strs_list = realloc(input_value.strs_list,
+                                            sizeof(char *) * (word_index + 11));
+        }
     }
 
-    if (sscanf(words_list[0], "%d", &(input_value.value)) > 0)
+#ifdef DEBUG
+    int i = 0;
+    while (input_value.strs_list[i] != NULL)
+    {
+        print_loge("DEBUG: input_value.strs_list[%d] is [%s]\n", i,
+                   input_value.strs_list[i]);
+        i++;
+    }
+#endif
+
+    if (sscanf(input_value.strs_list[0], "%d", &(input_value.value)) > 0)
     {
         // checking for the "alternative mode"
         input_value.show_mode = NORMAL;
@@ -316,7 +346,7 @@ Input_value parse_input(char **words_list, int size)
         }
 
         /* Checking for the "alternative mode" flag : '!' */
-        if (sscanf(words_list[0] + num_len, "%c", &altflag) > 0 &&
+        if (sscanf(input_value.strs_list[0] + num_len, "%c", &altflag) > 0 &&
             altflag == '!')
         {
             print_loge("DEBUG: Input_value parse_input altflag is '%c'\n",
@@ -325,7 +355,6 @@ Input_value parse_input(char **words_list, int size)
         }
         else
         {
-            // print_loge("DEBUG: Input_value parse_input altflag is NULL\n");
             input_value.show_mode = NORMAL;
         }
 
@@ -338,4 +367,5 @@ Input_value parse_input(char **words_list, int size)
 void free_input_value(Input_value *p_input_value)
 {
     free(p_input_value->input_string);
+    free(p_input_value->strs_list);
 }
